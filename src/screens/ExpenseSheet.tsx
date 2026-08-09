@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { Category, PayMethod, Transaction } from '@/types';
-import { addTransaction, updateTransaction } from '@/hooks/useTransactions';
+import { addTransaction, replaceTransaction } from '@/hooks/useTransactions';
 import { lastMethod, rememberMethod } from '@/hooks/useSettings';
 import { addSubscription } from '@/hooks/useSubscriptions';
+import { useTrips } from '@/hooks/useTrips';
 import { formatCents, parseAmount, splitEven } from '@/lib/money';
 import { fromISODate, today } from '@/lib/dates';
 import { CATEGORY_LABEL } from '@/lib/categories';
@@ -12,6 +13,7 @@ import CategoryChips from '@/components/CategoryChips';
 import MethodToggle from '@/components/MethodToggle';
 import SplitControl, { type SplitMode } from '@/components/SplitControl';
 import SubscriptionOptions, { type SubKind } from '@/components/SubscriptionOptions';
+import TripControl from '@/components/TripControl';
 import NoteDateRow from '@/components/NoteDateRow';
 import DeleteAction from '@/components/DeleteAction';
 
@@ -54,7 +56,10 @@ export default function ExpenseSheet({
   );
   const [note, setNote] = useState(existing?.note ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
+  const [onTrip, setOnTrip] = useState(existing?.trip !== undefined);
+  const [trip, setTrip] = useState(existing?.trip ?? '');
   const [subKind, setSubKind] = useState<SubKind>('monthly');
+  const trips = useTrips();
   const [dayOfMonth, setDayOfMonth] = useState(fromISODate(today()).getDate());
 
   const isSubscription = category === 'subscriptions';
@@ -70,10 +75,14 @@ export default function ExpenseSheet({
   const needsName = isSubscription && subKind === 'monthly' && note.trim() === '';
   const isTrial = isSubscription && subKind === 'trial';
 
+  // A nameless trip cannot be totalled, so the flag is meaningless without one.
+  const needsTrip = onTrip && trip.trim() === '';
+
   const missing = [
     amountCents === null || (amountCents <= 0 && !isTrial) ? 'enter an amount' : null,
     category === null ? 'pick a category' : null,
     needsName ? 'name the subscription' : null,
+    needsTrip ? 'name the trip' : null,
   ].filter((m): m is string => m !== null);
 
   const [attempted, setAttempted] = useState(false);
@@ -91,10 +100,11 @@ export default function ExpenseSheet({
       category,
       method,
       ...(trimmed ? { note: trimmed } : {}),
+      ...(onTrip ? { trip: trip.trim() } : {}),
     };
     // ownShareCents is computed once, here, and stored. It is never recomputed on
     // read, so past records survive any later change to split logic.
-    if (existing) await updateTransaction(existing.id, fields);
+    if (existing) await replaceTransaction(existing, fields);
     else await addTransaction(fields);
 
     // The reminder is only ever created alongside a brand new charge, so editing
@@ -151,6 +161,14 @@ export default function ExpenseSheet({
             onExactText={setExactText}
           />
         )}
+        <TripControl
+          on={onTrip}
+          trip={trip}
+          trips={trips}
+          invalid={attempted && needsTrip}
+          onToggle={setOnTrip}
+          onTrip={setTrip}
+        />
         <NoteDateRow
           note={note}
           date={date}

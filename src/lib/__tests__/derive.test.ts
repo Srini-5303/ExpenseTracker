@@ -10,6 +10,7 @@ import {
   needsSubscriptionNudge,
   netPosition,
   spend,
+  tripTotals,
 } from '@/lib/derive';
 
 const tx = (t: Partial<Transaction> & Pick<Transaction, 'type' | 'amountCents'>): Transaction => ({
@@ -155,6 +156,54 @@ describe('breakdowns', () => {
     const totals = methodTotals(fixture, ...MONTH);
     expect(totals.get('credit')).toBe(5000); // own share, not the 15000 charge
     expect(totals.get('debit')).toBe(4000); // the 20000 card payment is not spending
+  });
+});
+
+describe('tripTotals', () => {
+  const lisbon: Transaction[] = [
+    tx({
+      type: 'expense',
+      amountCents: 60000,
+      date: '2026-03-02',
+      category: 'travel',
+      method: 'credit',
+      trip: 'Lisbon',
+    }),
+    tx({
+      type: 'expense',
+      amountCents: 8000,
+      ownShareCents: 4000,
+      date: '2026-03-05',
+      category: 'restaurant',
+      method: 'credit',
+      trip: 'Lisbon',
+    }),
+    tx({ type: 'expense', amountCents: 3000, category: 'restaurant', method: 'debit' }),
+  ];
+
+  it('totals a trip by own share across categories and dates', () => {
+    const [trip] = tripTotals(lisbon);
+    expect(trip).toEqual({
+      trip: 'Lisbon',
+      cents: 64000, // 600 flight + 40 own share of the split dinner
+      count: 2,
+      from: '2026-03-02',
+      to: '2026-03-05',
+    });
+  });
+
+  it('does not double count — a trip is a dimension, not a second category', () => {
+    // The dinner belongs to the trip AND to restaurant. Category totals must
+    // still sum to exactly the period's spending.
+    const categories = categoryTotals(lisbon, '2026-01-01', '2026-12-31');
+    const summed = [...categories.values()].reduce((a, b) => a + b, 0);
+    expect(summed).toBe(spend(lisbon, '2026-01-01', '2026-12-31'));
+    expect(categories.get('restaurant')).toBe(4000 + 3000);
+    expect(categories.get('travel')).toBe(60000);
+  });
+
+  it('ignores untagged expenses and non-expenses', () => {
+    expect(tripTotals([tx({ type: 'income', amountCents: 100, trip: 'Lisbon' })])).toEqual([]);
   });
 });
 

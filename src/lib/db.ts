@@ -24,6 +24,13 @@ class ExpenseDB extends Dexie {
       settings: 'id',
       subscriptions: 'id, dayOfMonth',
     });
+    // v3 indexes the optional trip name. Existing rows simply have none, so
+    // there is no data to transform — only a new index to build.
+    this.version(3).stores({
+      transactions: 'id, date, type, category, method, trip, createdAt',
+      settings: 'id',
+      subscriptions: 'id, dayOfMonth',
+    });
   }
 }
 

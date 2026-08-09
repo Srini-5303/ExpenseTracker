@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PayMethod, Transaction, TxType } from '@/types';
-import { addTransaction, updateTransaction } from '@/hooks/useTransactions';
+import { addTransaction, replaceTransaction } from '@/hooks/useTransactions';
 import { parseAmount } from '@/lib/money';
 import { today } from '@/lib/dates';
 import Sheet from '@/components/Sheet';
@@ -77,7 +77,7 @@ export default function OtherEntrySheet({
       ...(type === 'card_payment' ? { method } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
     };
-    if (existing) await updateTransaction(existing.id, fields);
+    if (existing) await replaceTransaction(existing, fields);
     else await addTransaction(fields);
     onClose();
   }

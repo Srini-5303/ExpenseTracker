@@ -9,10 +9,10 @@ import type { Category, PayMethod, Settings, Subscription, Transaction, TxType }
  * data loss. This file is the only bridge, so it ships before real data entry.
  */
 
-// v2 added recurring subscriptions. v1 files still import: they simply carry
-// none, which is exactly what was true when they were written.
-export const EXPORT_VERSION = 2;
-const READABLE_VERSIONS = [1, 2];
+// v2 added recurring subscriptions, v3 the optional trip name. Older files still
+// import: what they lack, they genuinely did not have.
+export const EXPORT_VERSION = 3;
+const READABLE_VERSIONS = [1, 2, 3];
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface BackupFile {
@@ -169,6 +169,7 @@ function readTransaction(row: unknown, index: number): Transaction {
   if (CATEGORIES.includes(r['category'] as Category)) tx.category = r['category'] as Category;
   if (METHODS.includes(r['method'] as PayMethod)) tx.method = r['method'] as PayMethod;
   if (typeof r['note'] === 'string' && r['note'] !== '') tx.note = r['note'];
+  if (typeof r['trip'] === 'string' && r['trip'] !== '') tx.trip = r['trip'];
   return tx;
 }
 

@@ -5,6 +5,7 @@ import CategoryDonut from '@/features/analytics/CategoryDonut';
 import SpendOverTime from '@/features/analytics/SpendOverTime';
 import MonthComparison from '@/features/analytics/MonthComparison';
 import MethodSplitBar from '@/features/analytics/MethodSplitBar';
+import TripTotals from '@/features/analytics/TripTotals';
 
 /**
  * Every figure on this screen uses ownShareCents, and every one excludes income,
@@ -41,6 +42,7 @@ export default function Analytics() {
       <SpendOverTime txs={txs} month={month} />
       <MonthComparison txs={txs} month={month} />
       <MethodSplitBar txs={txs} month={month} />
+      <TripTotals txs={txs} />
     </div>
   );
 }

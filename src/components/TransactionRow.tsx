@@ -45,6 +45,7 @@ export default function TransactionRow({
           <span className="block text-xs text-dim">
             {formatShortDate(tx.date)}
             {tx.category && tx.note ? ` · ${CATEGORY_LABEL[tx.category]}` : ''}
+            {tx.trip ? ` · ${tx.trip}` : ''}
             {tx.method ? ` · ${tx.method}` : ''}
           </span>
         </span>

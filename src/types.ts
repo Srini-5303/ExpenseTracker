@@ -23,6 +23,14 @@ export interface Transaction {
   category?: Category; // required for expenses, absent for all other types
   method?: PayMethod; // required for expenses and card payments
   note?: string;
+  /**
+   * A trip name, on any category. Deliberately NOT a second category: a meal on
+   * holiday is still `restaurant`, so category totals keep summing to exactly
+   * the period's spending. Trips are an orthogonal dimension, which is what lets
+   * "what did Lisbon cost" and "what do I spend eating out" both be answerable
+   * from the same record.
+   */
+  trip?: string;
   createdAt: number;
 }
 

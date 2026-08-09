@@ -26,11 +26,16 @@ export async function addTransaction(tx: Omit<Transaction, 'id' | 'createdAt'>):
   return id;
 }
 
-export async function updateTransaction(
-  id: string,
-  changes: Partial<Omit<Transaction, 'id' | 'createdAt'>>,
+/**
+ * Replaces the whole record rather than merging changes into it. Optional fields
+ * — a note, a trip — must be able to go away: an update would keep the old value
+ * for any key the edit simply no longer has.
+ */
+export async function replaceTransaction(
+  existing: Transaction,
+  fields: Omit<Transaction, 'id' | 'createdAt'>,
 ): Promise<void> {
-  await db.transactions.update(id, changes);
+  await db.transactions.put({ ...fields, id: existing.id, createdAt: existing.createdAt });
 }
 
 /** Returns the deleted row so the undo affordance can put it straight back. */

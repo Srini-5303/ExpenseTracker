@@ -105,6 +105,45 @@ export function methodTotals(
   return totals;
 }
 
+export interface TripTotal {
+  trip: string;
+  cents: number;
+  count: number;
+  from: string;
+  to: string;
+}
+
+/**
+ * Own-share spending per trip, across all time rather than a month, because a
+ * trip is not bounded by the calendar.
+ *
+ * A trip is an orthogonal dimension, not a category: the same $40 dinner counts
+ * once towards `restaurant` and once towards the Lisbon trip, and neither total
+ * inflates the other because they are different questions.
+ */
+export function tripTotals(txs: readonly Transaction[]): TripTotal[] {
+  const totals = new Map<string, TripTotal>();
+  for (const t of txs) {
+    if (!isExpense(t) || !t.trip) continue;
+    const found = totals.get(t.trip);
+    if (!found) {
+      totals.set(t.trip, {
+        trip: t.trip,
+        cents: t.ownShareCents,
+        count: 1,
+        from: t.date,
+        to: t.date,
+      });
+      continue;
+    }
+    found.cents += t.ownShareCents;
+    found.count += 1;
+    if (t.date < found.from) found.from = t.date;
+    if (t.date > found.to) found.to = t.date;
+  }
+  return [...totals.values()].sort((a, b) => b.to.localeCompare(a.to));
+}
+
 /** True when the month has no subscription expense yet — drives the home-screen nudge. */
 export function needsSubscriptionNudge(txs: readonly Transaction[], month: string): boolean {
   return !txs.some(
