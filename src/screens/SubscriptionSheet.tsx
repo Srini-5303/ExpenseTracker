@@ -19,9 +19,11 @@ export default function SubscriptionSheet({
   const [dayOfMonth, setDayOfMonth] = useState(sub.dayOfMonth);
 
   const amountCents = parseAmount(amountText);
+  const [attempted, setAttempted] = useState(false);
+  const valid = amountCents !== null && amountCents > 0;
 
   async function save() {
-    if (amountCents === null || amountCents <= 0) return;
+    if (!valid || amountCents === null) return setAttempted(true);
     await updateSubscription(sub.id, { name: name.trim() || sub.name, amountCents, dayOfMonth });
     onClose();
   }
@@ -36,7 +38,7 @@ export default function SubscriptionSheet({
       title="Subscription"
       onClose={onClose}
       onSave={() => void save()}
-      canSave={amountCents !== null && amountCents > 0}
+      error={attempted && !valid ? 'Enter the monthly charge.' : undefined}
       extraAction={
         <button
           onClick={() => void stop()}

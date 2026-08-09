@@ -68,13 +68,19 @@ export default function ExpenseSheet({
   // A monthly reminder must be named: "Subscription — still active?" tells you
   // nothing when three of them come due in the same week.
   const needsName = isSubscription && subKind === 'monthly' && note.trim() === '';
-  const canSave =
-    amountCents !== null &&
-    category !== null &&
-    !needsName &&
-    (amountCents > 0 || (isSubscription && subKind === 'trial'));
+  const isTrial = isSubscription && subKind === 'trial';
+
+  const missing = [
+    amountCents === null || (amountCents <= 0 && !isTrial) ? 'enter an amount' : null,
+    category === null ? 'pick a category' : null,
+    needsName ? 'name the subscription' : null,
+  ].filter((m): m is string => m !== null);
+
+  const [attempted, setAttempted] = useState(false);
+  const error = attempted && missing.length > 0 ? sentence(missing) : undefined;
 
   async function save() {
+    if (missing.length > 0) return setAttempted(true);
     if (amountCents === null || category === null || ownShareCents === null) return;
     const trimmed = note.trim();
     const fields = {
@@ -111,7 +117,7 @@ export default function ExpenseSheet({
       title={existing ? 'Edit expense' : 'New expense'}
       onClose={onClose}
       onSave={() => void save()}
-      canSave={canSave}
+      error={error}
       {...(existing ? { extraAction: <DeleteAction onDelete={() => onDelete(existing)} /> } : {})}
     >
       <AmountInput
@@ -151,11 +157,18 @@ export default function ExpenseSheet({
           onNote={setNote}
           onDate={setDate}
           {...(isSubscription ? { label: 'Name', placeholder: 'Netflix' } : {})}
-          {...(needsName ? { hint: 'The monthly reminder needs a name.' } : {})}
+          {...(attempted && needsName ? { hint: 'The monthly reminder needs a name.' } : {})}
         />
       </div>
     </Sheet>
   );
+}
+
+/** "Enter an amount and pick a category." — one sentence, however many are missing. */
+function sentence(parts: string[]): string {
+  const joined =
+    parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]!;
+  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`;
 }
 
 /**

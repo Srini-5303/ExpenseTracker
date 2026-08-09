@@ -63,9 +63,12 @@ export default function OtherEntrySheet({
   const [date, setDate] = useState(existing?.date ?? today());
 
   const amountCents = parseAmount(amountText);
+  const [attempted, setAttempted] = useState(false);
+  const valid = amountCents !== null && amountCents > 0;
 
   async function save() {
-    if (amountCents === null || amountCents <= 0) return;
+    if (!valid) return setAttempted(true);
+    if (amountCents === null) return;
     const fields = {
       date,
       type,
@@ -84,7 +87,7 @@ export default function OtherEntrySheet({
       title={copy.title}
       onClose={onClose}
       onSave={() => void save()}
-      canSave={amountCents !== null && amountCents > 0}
+      error={attempted && !valid ? 'Enter an amount.' : undefined}
       {...(existing ? { extraAction: <DeleteAction onDelete={() => onDelete(existing)} /> } : {})}
     >
       <AmountInput
