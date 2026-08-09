@@ -47,6 +47,16 @@ export function monthStart(iso: string): string {
   return `${monthKey(iso)}-01`;
 }
 
+/**
+ * The date a monthly item falls on in a given month, clamped to the month's
+ * length: the 31st becomes the 28th in February rather than skipping the month.
+ */
+export function dayInMonth(key: string, dayOfMonth: number): string {
+  const [y = 0, m = 1] = key.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return `${key}-${`${Math.min(dayOfMonth, last)}`.padStart(2, '0')}`;
+}
+
 /** Inclusive last day of the month a key names. */
 export function monthEnd(key: string): string {
   const [y = 0, m = 1] = key.split('-').map(Number);

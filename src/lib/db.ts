@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Settings, Transaction } from '@/types';
+import type { Settings, Subscription, Transaction } from '@/types';
 
 /**
  * All data stays on device. Safari and the installed home-screen app are separate
@@ -9,12 +9,20 @@ import type { Settings, Transaction } from '@/types';
 class ExpenseDB extends Dexie {
   transactions!: EntityTable<Transaction, 'id'>;
   settings!: EntityTable<Settings, 'id'>;
+  subscriptions!: EntityTable<Subscription, 'id'>;
 
   constructor() {
     super('expense-tracker');
     this.version(1).stores({
       transactions: 'id, date, type, category, method, createdAt',
       settings: 'id',
+    });
+    // v2 adds recurring subscription reminders. Purely additive — no existing
+    // record is touched, so there is nothing to transform.
+    this.version(2).stores({
+      transactions: 'id, date, type, category, method, createdAt',
+      settings: 'id',
+      subscriptions: 'id, dayOfMonth',
     });
   }
 }

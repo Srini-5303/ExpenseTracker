@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dayInMonth,
   daysInMonth,
   fromISODate,
   inRange,
@@ -58,6 +59,21 @@ describe('month helpers', () => {
     expect(august).toHaveLength(31);
     expect(august[0]).toBe('2026-08-01');
     expect(august.at(-1)).toBe('2026-08-31');
+  });
+});
+
+describe('dayInMonth', () => {
+  it('clamps a billing day to the length of the month', () => {
+    // A subscription billing on the 31st must still come due in February,
+    // not silently skip the month.
+    expect(dayInMonth('2026-02', 31)).toBe('2026-02-28');
+    expect(dayInMonth('2028-02', 31)).toBe('2028-02-29');
+    expect(dayInMonth('2026-04', 31)).toBe('2026-04-30');
+  });
+
+  it('leaves a valid day alone and pads it', () => {
+    expect(dayInMonth('2026-08', 15)).toBe('2026-08-15');
+    expect(dayInMonth('2026-08', 1)).toBe('2026-08-01');
   });
 });
 

@@ -11,6 +11,7 @@ export const CATEGORY_ORDER: readonly Category[] = [
   'groceries',
   'cab',
   'shopping',
+  'guilty_pleasure',
   'rent',
   'utilities',
   'subscriptions',
@@ -22,6 +23,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   groceries: 'Groceries',
   cab: 'Cab',
   shopping: 'Shopping',
+  guilty_pleasure: 'Guilty pleasure',
   rent: 'Rent',
   utilities: 'Utilities',
   subscriptions: 'Subscriptions',
@@ -33,7 +35,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
  * list dots, chart segments. A category that is teal in the donut and amber in
  * the list is a category the user cannot track.
  *
- * Each hue is snapped into the OKLCH band L 0.48–0.67 against the #0c1113
+ * Nine hues. Each is snapped into the OKLCH band L 0.48–0.67 against the #0c1113
  * surface, and lightness varies deliberately as well as hue: red and green sit
  * at opposite ends of the band because protanopia and deuteranopia collapse that
  * pair by hue alone. Validated against adjacent-pair CVD separation, the
@@ -52,6 +54,7 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   groceries: '#3dad57',
   cab: '#2592fa',
   shopping: '#ca4b83',
+  guilty_pleasure: '#8d5400',
   rent: '#ae9200',
   utilities: '#009393',
   subscriptions: '#7b50b9',

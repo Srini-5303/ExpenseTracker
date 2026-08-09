@@ -2,19 +2,25 @@ import { useState } from 'react';
 import type { Category, PayMethod, Transaction } from '@/types';
 import { addTransaction, updateTransaction } from '@/hooks/useTransactions';
 import { lastMethod, rememberMethod } from '@/hooks/useSettings';
+import { addSubscription } from '@/hooks/useSubscriptions';
 import { formatCents, parseAmount, splitEven } from '@/lib/money';
-import { today } from '@/lib/dates';
+import { fromISODate, today } from '@/lib/dates';
+import { CATEGORY_LABEL } from '@/lib/categories';
 import Sheet from '@/components/Sheet';
 import AmountInput from '@/components/AmountInput';
 import CategoryChips from '@/components/CategoryChips';
 import MethodToggle from '@/components/MethodToggle';
 import SplitControl, { type SplitMode } from '@/components/SplitControl';
+import SubscriptionOptions, { type SubKind } from '@/components/SubscriptionOptions';
 import NoteDateRow from '@/components/NoteDateRow';
 import DeleteAction from '@/components/DeleteAction';
 
 /**
  * The primary flow, and it should take under fifteen seconds: amount, category,
  * credit or debit, split, note, date.
+ *
+ * Subscriptions swap the split control for the recurring options, since a
+ * subscription is never shared with anyone.
  *
  * Also the edit surface. An existing transaction opens here with both figures
  * editable, so a split entered wrong is corrected without deleting and re-adding.
@@ -48,13 +54,25 @@ export default function ExpenseSheet({
   );
   const [note, setNote] = useState(existing?.note ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
+  const [subKind, setSubKind] = useState<SubKind>('monthly');
+  const [dayOfMonth, setDayOfMonth] = useState(fromISODate(today()).getDate());
 
-  const amountCents = parseAmount(amountText);
-  const ownShareCents = computeOwnShare(amountCents, mode, headcount, exactText);
-  const canSave = amountCents !== null && amountCents > 0 && category !== null;
+  const isSubscription = category === 'subscriptions';
+  // A trial genuinely cost nothing, so an empty amount reads as $0 rather than
+  // blocking the save.
+  const amountCents =
+    isSubscription && subKind === 'trial' && amountText.trim() === '' ? 0 : parseAmount(amountText);
+  const ownShareCents = isSubscription
+    ? amountCents
+    : computeOwnShare(amountCents, mode, headcount, exactText);
+  const canSave =
+    amountCents !== null &&
+    category !== null &&
+    (amountCents > 0 || (isSubscription && subKind === 'trial'));
 
   async function save() {
     if (amountCents === null || category === null || ownShareCents === null) return;
+    const trimmed = note.trim();
     const fields = {
       date,
       type: 'expense' as const,
@@ -62,12 +80,24 @@ export default function ExpenseSheet({
       ownShareCents,
       category,
       method,
-      ...(note.trim() ? { note: note.trim() } : {}),
+      ...(trimmed ? { note: trimmed } : {}),
     };
     // ownShareCents is computed once, here, and stored. It is never recomputed on
     // read, so past records survive any later change to split logic.
     if (existing) await updateTransaction(existing.id, fields);
     else await addTransaction(fields);
+
+    // The reminder is only ever created alongside a brand new charge, so editing
+    // an old subscription row cannot quietly produce a second rule.
+    if (!existing && isSubscription && subKind === 'monthly') {
+      await addSubscription({
+        name: trimmed || CATEGORY_LABEL.subscriptions,
+        amountCents,
+        dayOfMonth,
+        method,
+      });
+    }
+
     rememberMethod(method);
     onClose();
   }
@@ -84,22 +114,33 @@ export default function ExpenseSheet({
         value={amountText}
         onChange={setAmountText}
         autoFocus={!existing}
-        {...(mode !== 'none' && ownShareCents !== null
-          ? { hint: `Your share ${formatCents(ownShareCents)}` }
-          : {})}
+        {...(isSubscription && subKind === 'trial'
+          ? { hint: 'Free trial — logged as $0.00' }
+          : !isSubscription && mode !== 'none' && ownShareCents !== null
+            ? { hint: `Your share ${formatCents(ownShareCents)}` }
+            : {})}
       />
 
       <div className="mt-2 space-y-6 pb-6">
         <CategoryChips value={category} onChange={setCategory} />
         <MethodToggle value={method} onChange={setMethod} />
-        <SplitControl
-          mode={mode}
-          headcount={headcount}
-          exactText={exactText}
-          onMode={setMode}
-          onHeadcount={setHeadcount}
-          onExactText={setExactText}
-        />
+        {isSubscription ? (
+          <SubscriptionOptions
+            kind={subKind}
+            dayOfMonth={dayOfMonth}
+            onKind={setSubKind}
+            onDayOfMonth={setDayOfMonth}
+          />
+        ) : (
+          <SplitControl
+            mode={mode}
+            headcount={headcount}
+            exactText={exactText}
+            onMode={setMode}
+            onHeadcount={setHeadcount}
+            onExactText={setExactText}
+          />
+        )}
         <NoteDateRow note={note} date={date} onNote={setNote} onDate={setDate} />
       </div>
     </Sheet>

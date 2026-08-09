@@ -3,10 +3,12 @@ import type { Category, Transaction, TxType } from '@/types';
 import { useBalances } from '@/hooks/useDerived';
 import { deleteTransaction, restoreTransaction } from '@/hooks/useTransactions';
 import { useSettings } from '@/hooks/useSettings';
+import { useDueSubscriptions } from '@/hooks/useSubscriptions';
 import { exportIsStale } from '@/lib/backup';
 import BalanceHeader from '@/components/BalanceHeader';
 import SpendSummary from '@/components/SpendSummary';
 import SubscriptionNudge from '@/components/SubscriptionNudge';
+import SubscriptionPrompt from '@/components/SubscriptionPrompt';
 import TransactionList from '@/components/TransactionList';
 import AddButton from '@/components/AddButton';
 import UndoToast from '@/components/UndoToast';
@@ -23,6 +25,7 @@ type SheetState =
 export default function Home({ onGoToData }: { onGoToData: () => void }) {
   const b = useBalances();
   const settings = useSettings();
+  const due = useDueSubscriptions();
   const [sheet, setSheet] = useState<SheetState>(null);
   const [deleted, setDeleted] = useState<Transaction | null>(null);
 
@@ -47,7 +50,12 @@ export default function Home({ onGoToData }: { onGoToData: () => void }) {
           availableCredit={b.availableCredit}
         />
         <SpendSummary today={b.spentToday} week={b.spentThisWeek} month={b.spentThisMonth} />
-        {b.hasTransactions && b.showSubscriptionNudge && (
+        {/* Due reminders come first, and while any is pending the generic nudge
+            stays quiet — answering the prompt is what logs the subscription. */}
+        {due.map((sub) => (
+          <SubscriptionPrompt key={sub.id} sub={sub} />
+        ))}
+        {due.length === 0 && b.hasTransactions && b.showSubscriptionNudge && (
           <SubscriptionNudge
             onLog={() => setSheet({ kind: 'expense', initialCategory: 'subscriptions' })}
           />

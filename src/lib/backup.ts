@@ -1,6 +1,6 @@
 import { db, SETTINGS_ID } from '@/lib/db';
 import { today } from '@/lib/dates';
-import type { Category, PayMethod, Settings, Transaction, TxType } from '@/types';
+import type { Category, PayMethod, Settings, Subscription, Transaction, TxType } from '@/types';
 
 /**
  * Local-only storage is one cleared cache away from gone, and Safari and the
@@ -9,24 +9,29 @@ import type { Category, PayMethod, Settings, Transaction, TxType } from '@/types
  * data loss. This file is the only bridge, so it ships before real data entry.
  */
 
-export const EXPORT_VERSION = 1;
+// v2 added recurring subscriptions. v1 files still import: they simply carry
+// none, which is exactly what was true when they were written.
+export const EXPORT_VERSION = 2;
+const READABLE_VERSIONS = [1, 2];
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface BackupFile {
   version: number;
   exportedAt: number;
   transactions: Transaction[];
+  subscriptions: Subscription[];
   settings: Settings | undefined;
 }
 
 export async function exportAll(): Promise<BackupFile> {
-  const [transactions, settings] = await Promise.all([
+  const [transactions, subscriptions, settings] = await Promise.all([
     db.transactions.orderBy('date').toArray(),
+    db.subscriptions.toArray(),
     db.settings.get(SETTINGS_ID),
   ]);
   const exportedAt = Date.now();
   await db.settings.put({ ...settings, id: SETTINGS_ID, lastExportAt: exportedAt });
-  return { version: EXPORT_VERSION, exportedAt, transactions, settings };
+  return { version: EXPORT_VERSION, exportedAt, transactions, subscriptions, settings };
 }
 
 export function downloadBackup(backup: BackupFile): void {
@@ -43,18 +48,20 @@ export type ImportMode = 'merge' | 'replace';
 
 /**
  * merge   — upsert by id, keeping anything the file does not mention.
- * replace — clear both tables first.
+ * replace — clear every table first.
  *
  * Both run in one transaction so a failure part way through cannot leave the
  * database half-wiped.
  */
 export async function importAll(file: BackupFile, mode: ImportMode): Promise<number> {
-  await db.transaction('rw', db.transactions, db.settings, async () => {
+  await db.transaction('rw', db.transactions, db.subscriptions, db.settings, async () => {
     if (mode === 'replace') {
       await db.transactions.clear();
+      await db.subscriptions.clear();
       await db.settings.clear();
     }
     await db.transactions.bulkPut(file.transactions);
+    await db.subscriptions.bulkPut(file.subscriptions);
     if (file.settings) await db.settings.put({ ...file.settings, id: SETTINGS_ID });
   });
   return file.transactions.length;
@@ -70,6 +77,7 @@ const CATEGORIES: readonly Category[] = [
   'rent',
   'subscriptions',
   'shopping',
+  'guilty_pleasure',
   'other',
 ];
 
@@ -89,20 +97,43 @@ export function parseBackup(json: string): BackupFile {
   if (typeof raw !== 'object' || raw === null) throw new Error('That file is not a backup.');
   const data = raw as Record<string, unknown>;
 
-  if (data['version'] !== EXPORT_VERSION) {
+  if (!READABLE_VERSIONS.includes(data['version'] as number)) {
     throw new Error(`Backup version ${String(data['version'])} cannot be read by this version.`);
   }
   if (!Array.isArray(data['transactions'])) {
     throw new Error('That backup has no transactions in it.');
   }
 
-  const transactions = data['transactions'].map(readTransaction);
+  const raws = data['subscriptions'];
   return {
     version: EXPORT_VERSION,
     exportedAt: typeof data['exportedAt'] === 'number' ? data['exportedAt'] : Date.now(),
-    transactions,
+    transactions: data['transactions'].map(readTransaction),
+    // Absent in v1 files, and absent is simply none.
+    subscriptions: Array.isArray(raws) ? raws.flatMap(readSubscription) : [],
     settings: readSettings(data['settings']),
   };
+}
+
+/** A malformed reminder is skipped rather than fatal — it can be re-added in seconds. */
+function readSubscription(row: unknown): Subscription[] {
+  if (typeof row !== 'object' || row === null) return [];
+  const r = row as Record<string, unknown>;
+  const day = r['dayOfMonth'];
+  if (typeof r['id'] !== 'string' || typeof r['name'] !== 'string') return [];
+  if (!Number.isInteger(r['amountCents']) || (r['amountCents'] as number) < 0) return [];
+  if (!Number.isInteger(day) || (day as number) < 1 || (day as number) > 31) return [];
+  if (!METHODS.includes(r['method'] as PayMethod)) return [];
+  return [
+    {
+      id: r['id'],
+      name: r['name'],
+      amountCents: r['amountCents'] as number,
+      dayOfMonth: day as number,
+      method: r['method'] as PayMethod,
+      lastLoggedMonth: typeof r['lastLoggedMonth'] === 'string' ? r['lastLoggedMonth'] : '',
+    },
+  ];
 }
 
 function readTransaction(row: unknown, index: number): Transaction {

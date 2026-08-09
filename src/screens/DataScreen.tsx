@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
+import type { Subscription } from '@/types';
 import { useSettings, setCreditLimit } from '@/hooks/useSettings';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+import SubscriptionSheet from '@/screens/SubscriptionSheet';
+import { CATEGORY_COLOR } from '@/lib/categories';
 import { downloadBackup, exportAll, exportIsStale, importAll, parseBackup } from '@/lib/backup';
 import type { BackupFile } from '@/lib/backup';
 import { formatCents, parseAmount } from '@/lib/money';
@@ -13,6 +17,8 @@ import { formatCents, parseAmount } from '@/lib/money';
  */
 export default function DataScreen() {
   const settings = useSettings();
+  const subs = useSubscriptions();
+  const [editing, setEditing] = useState<Subscription | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<BackupFile | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -124,6 +130,39 @@ export default function DataScreen() {
 
         {message && <p className="mt-3 text-sm text-dim">{message}</p>}
       </section>
+
+      {subs.length > 0 && (
+        <section className="mt-8 border-t border-line pt-5">
+          <h2 className="eyebrow">Recurring subscriptions</h2>
+          <p className="mt-2 text-sm leading-relaxed text-dim">
+            Each one asks on its billing day before anything is logged.
+          </p>
+          <ul className="mt-2 divide-y divide-line">
+            {subs.map((sub) => (
+              <li key={sub.id}>
+                <button
+                  onClick={() => setEditing(sub)}
+                  className="flex w-full items-center gap-3 py-3 text-left active:bg-surface"
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: CATEGORY_COLOR.subscriptions }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{sub.name}</span>
+                    <span className="block text-xs text-dim">
+                      Day {sub.dayOfMonth} · {sub.method}
+                    </span>
+                  </span>
+                  <span className="num shrink-0">{formatCents(sub.amountCents)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {editing && <SubscriptionSheet sub={editing} onClose={() => setEditing(null)} />}
 
       <section className="mt-8 border-t border-line pt-5">
         <h2 className="eyebrow">Credit limit</h2>

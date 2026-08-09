@@ -10,6 +10,7 @@ export type Category =
   | 'rent'
   | 'subscriptions'
   | 'shopping' // personal shopping: clothes, electronics, household goods
+  | 'guilty_pleasure'
   | 'other';
 
 export interface Transaction {
@@ -22,6 +23,23 @@ export interface Transaction {
   method?: PayMethod; // required for expenses and card payments
   note?: string;
   createdAt: number;
+}
+
+/**
+ * A recurring subscription is a REMINDER, not an automated transaction. Nothing
+ * is ever written to the ledger without the monthly prompt being answered yes,
+ * so a cancelled or re-priced service can never silently inflate the totals.
+ *
+ * Free trials deliberately produce no rule: they are logged once at $0 and then
+ * forgotten until you decide to pay for the thing.
+ */
+export interface Subscription {
+  id: string;
+  name: string;
+  amountCents: number;
+  dayOfMonth: number; // 1–31, clamped to the month's length when it comes due
+  method: PayMethod;
+  lastLoggedMonth: string; // 'YYYY-MM'; set at creation so it never prompts twice
 }
 
 export interface Settings {
