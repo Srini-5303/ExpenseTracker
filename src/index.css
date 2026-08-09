@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+/*
+ * DESIGN SYSTEM
+ *
+ * One rule governs color: saturated color means CATEGORY, and nothing else.
+ * There is no accent hue. The primary action is an inverted ink pill. Because
+ * the only color in the app is the eight category hues, that mapping is
+ * impossible to misread — on a chip, a list dot, or a chart segment.
+ *
+ * Surfaces step by luminance, never by hue. Depth comes from hairlines, not
+ * shadows or cards, which keeps the screen calm enough to read at a glance.
+ *
+ * Numbers are the content. They get size, weight, and tabular figures; every
+ * label around them is small, uppercase, widely tracked, and dim — instrument
+ * panel, not dashboard.
+ *
+ * Category hues are mirrored in lib/categories.ts, which is what Recharts reads.
+ * Change one, change both.
+ */
+@theme {
+  /* Surfaces — cool graphite, stepped by luminance only */
+  --color-field: #060a0b; /* the neutral field behind the 440px app on desktop */
+  --color-bg: #0c1113;
+  --color-surface: #151b1e;
+  --color-raised: #1d2529;
+  --color-line: #253034;
+
+  /* Ink */
+  --color-ink: #e8eeef;
+  --color-dim: #7c8a8e;
+
+  /* Category — the only saturated color in the app */
+  --color-cat-restaurant: #ff7a5b;
+  --color-cat-groceries: #58dd9b;
+  --color-cat-cab: #4fb0ff;
+  --color-cat-shopping: #ff7ea8;
+  --color-cat-rent: #e8c245;
+  --color-cat-utilities: #46d9d0;
+  --color-cat-subscriptions: #8e9bff;
+  --color-cat-other: #6e7b80;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100dvh; /* never 100vh — Safari's vh includes the collapsing toolbar */
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-field);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Below 16px iOS zooms on focus and never zooms back out. */
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+    font-family: inherit;
+    color: inherit;
+  }
+
+  button,
+  [role='button'],
+  label {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* The grey flash reads as a rendering bug; real active states replace it. */
+  button {
+    transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+/* Money. Tabular figures so decimal columns align down the screen, and tight
+   tracking so large figures read as one object rather than spaced digits. */
+@utility num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Small uppercase label above a figure. Wide tracking is what makes it recede
+   into signage rather than compete with the number. */
+@utility eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-dim);
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility scroll-contain {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
