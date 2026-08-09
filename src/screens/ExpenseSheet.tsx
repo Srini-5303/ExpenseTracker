@@ -65,9 +65,13 @@ export default function ExpenseSheet({
   const ownShareCents = isSubscription
     ? amountCents
     : computeOwnShare(amountCents, mode, headcount, exactText);
+  // A monthly reminder must be named: "Subscription — still active?" tells you
+  // nothing when three of them come due in the same week.
+  const needsName = isSubscription && subKind === 'monthly' && note.trim() === '';
   const canSave =
     amountCents !== null &&
     category !== null &&
+    !needsName &&
     (amountCents > 0 || (isSubscription && subKind === 'trial'));
 
   async function save() {
@@ -141,7 +145,14 @@ export default function ExpenseSheet({
             onExactText={setExactText}
           />
         )}
-        <NoteDateRow note={note} date={date} onNote={setNote} onDate={setDate} />
+        <NoteDateRow
+          note={note}
+          date={date}
+          onNote={setNote}
+          onDate={setDate}
+          {...(isSubscription ? { label: 'Name', placeholder: 'Netflix' } : {})}
+          {...(needsName ? { hint: 'The monthly reminder needs a name.' } : {})}
+        />
       </div>
     </Sheet>
   );
