@@ -33,19 +33,27 @@ export const CATEGORY_LABEL: Record<Category, string> = {
  * list dots, chart segments. A category that is teal in the donut and amber in
  * the list is a category the user cannot track.
  *
- * Eight hues spaced around the wheel at roughly matched luminance, so no segment
- * dominates a donut by brightness alone. `other` is the one unsaturated entry —
- * a catch-all that looks inviting gets used as the path of least resistance.
+ * Each hue is snapped into the OKLCH band L 0.48–0.67 against the #0c1113
+ * surface, and lightness varies deliberately as well as hue: red and green sit
+ * at opposite ends of the band because protanopia and deuteranopia collapse that
+ * pair by hue alone. Validated against adjacent-pair CVD separation, the
+ * normal-vision floor, and 3:1 contrast.
  *
- * Mirrored as --color-cat-* in index.css. Change one, change both.
+ * `other` is the one deliberate exception — it is gray, below the chroma floor,
+ * because a catch-all that looks as inviting as a real category gets used as the
+ * path of least resistance and hollows out the analytics. Every chart labels its
+ * categories by name, so color is never the only thing carrying identity.
+ *
+ * This is the only place these values exist. Chips, rows, and chart segments all
+ * read from here, so the mapping cannot drift between a stylesheet and a chart.
  */
 export const CATEGORY_COLOR: Record<Category, string> = {
-  restaurant: '#ff7a5b',
-  groceries: '#58dd9b',
-  cab: '#4fb0ff',
-  shopping: '#ff7ea8',
-  rent: '#e8c245',
-  utilities: '#46d9d0',
-  subscriptions: '#8e9bff',
+  restaurant: '#c84a1e',
+  groceries: '#3dad57',
+  cab: '#2592fa',
+  shopping: '#ca4b83',
+  rent: '#ae9200',
+  utilities: '#009393',
+  subscriptions: '#7b50b9',
   other: '#6e7b80',
 };

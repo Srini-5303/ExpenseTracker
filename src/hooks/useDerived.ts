@@ -12,6 +12,7 @@ export function useBalances() {
   return useMemo(() => {
     const now = today();
     return {
+      hasTransactions: txs.length > 0,
       cashOnHand: derive.cashOnHand(txs),
       cardBalance: derive.cardBalance(txs),
       availableCredit: derive.availableCredit(txs, settings?.creditLimitCents),

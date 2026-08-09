@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import TabBar, { type Tab } from '@/components/TabBar';
 import Home from '@/screens/Home';
-import Analytics from '@/screens/Analytics';
 import DataScreen from '@/screens/DataScreen';
+
+// Recharts is most of the bundle. The daily-entry flow is the one that has to be
+// fast, so it does not wait on a chart library it never uses.
+const Analytics = lazy(() => import('@/screens/Analytics'));
 
 /**
  * No router. Three tabs and a modal entry sheet is the whole navigation surface;
@@ -14,8 +17,12 @@ export default function App() {
 
   return (
     <AppShell>
-      {tab === 'home' && <Home />}
-      {tab === 'analytics' && <Analytics />}
+      {tab === 'home' && <Home onGoToData={() => setTab('data')} />}
+      {tab === 'analytics' && (
+        <Suspense fallback={<div className="flex-1" />}>
+          <Analytics />
+        </Suspense>
+      )}
       {tab === 'data' && <DataScreen />}
       <TabBar active={tab} onChange={setTab} />
     </AppShell>

@@ -1,6 +1,12 @@
 import { formatCents } from '@/lib/money';
 
-/** Cash on hand is large; card balance and available credit are secondary. */
+/**
+ * Cash on hand is the headline. Card balance and available credit sit beneath a
+ * hairline, sharing the same right edge so the figures read as one aligned stack.
+ *
+ * Both card figures use the full charge, never the own share — card balance is
+ * the credit-limit number.
+ */
 export default function BalanceHeader({
   cashOnHand,
   cardBalance,
@@ -11,13 +17,24 @@ export default function BalanceHeader({
   availableCredit: number | undefined;
 }) {
   return (
-    <header className="pt-6">
-      <p className="text-sm text-dim">Cash on hand</p>
-      <p className="text-5xl">{formatCents(cashOnHand)}</p>
-      <p className="mt-2 text-sm text-dim">
-        Card {formatCents(cardBalance)}
-        {availableCredit !== undefined && ` · ${formatCents(availableCredit)} available`}
+    <header className="pt-8">
+      <p className="eyebrow">Cash on hand</p>
+      <p className="num mt-1 text-[2.75rem] leading-none font-semibold">
+        {formatCents(cashOnHand)}
       </p>
+
+      <div className="mt-5 border-t border-line pt-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm text-dim">Card balance</span>
+          <span className="num text-lg">{formatCents(cardBalance)}</span>
+        </div>
+        {availableCredit !== undefined && (
+          <div className="mt-1 flex items-baseline justify-between text-xs text-dim">
+            <span>Available credit</span>
+            <span className="num">{formatCents(availableCredit)}</span>
+          </div>
+        )}
+      </div>
     </header>
   );
 }

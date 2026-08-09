@@ -1,17 +1,107 @@
-import type { TxType } from '@/types';
+import { useState } from 'react';
+import type { PayMethod, Transaction, TxType } from '@/types';
+import { addTransaction, updateTransaction } from '@/hooks/useTransactions';
+import { parseAmount } from '@/lib/money';
+import { today } from '@/lib/dates';
+import Sheet from '@/components/Sheet';
+import AmountInput from '@/components/AmountInput';
+import MethodToggle from '@/components/MethodToggle';
+import NoteDateRow from '@/components/NoteDateRow';
+import DeleteAction from '@/components/DeleteAction';
+
+type OtherType = Exclude<TxType, 'expense'>;
 
 /**
- * Paychecks, reimbursements, and card payments. Occasional, not daily, so they
- * live behind a secondary control.
+ * Paychecks, reimbursements, and card payments.
  *
- *  income        — no category, no method, ownShareCents === amountCents
- *  reimbursement — same shape; increases cash, is NOT income, never in analytics,
- *                  and does NOT reduce the card balance
- *  card_payment  — method is 'debit' or 'cash' (where the money comes from);
- *                  moves cash to card balance, is NOT an expense, never in analytics
+ *  income        — increases cash, has no category and no method
+ *  reimbursement — increases cash, is NOT income, and does NOT reduce the card
+ *                  balance, because the bank still wants the full charge until
+ *                  the bill is paid. Nothing is matched to an original
+ *                  transaction and nothing is ever marked settled.
+ *  card_payment  — moves money from cash to the card balance. It is not an
+ *                  expense and must never reach analytics: the purchases behind
+ *                  it were already recorded when they happened.
+ *
+ * All three set ownShareCents equal to amountCents.
  */
-export default function OtherEntrySheet({ type }: { type: Exclude<TxType, 'expense'> }) {
-  // TODO: amount, date, note. Method picker only for card_payment.
-  void type;
-  return <form className="safe-bottom flex flex-col gap-6 p-5" />;
+const COPY: Record<OtherType, { title: string; label: string; help: string }> = {
+  income: {
+    title: 'Paycheck',
+    label: 'Amount received',
+    help: 'Money coming in. Adds to cash on hand.',
+  },
+  reimbursement: {
+    title: 'Money back',
+    label: 'Amount received',
+    help: 'Someone paid you back. Adds to cash, and never counts as spending or income.',
+  },
+  card_payment: {
+    title: 'Card payment',
+    label: 'Amount paid',
+    help: 'Pays down the card from cash. Never counts as spending — those purchases were logged when you made them.',
+  },
+};
+
+export default function OtherEntrySheet({
+  type,
+  existing,
+  onDelete,
+  onClose,
+}: {
+  type: OtherType;
+  existing?: Transaction;
+  onDelete: (tx: Transaction) => void;
+  onClose: () => void;
+}) {
+  const copy = COPY[type];
+  const [amountText, setAmountText] = useState(
+    existing ? (existing.amountCents / 100).toFixed(2) : '',
+  );
+  const [method, setMethod] = useState<PayMethod>(existing?.method ?? 'debit');
+  const [note, setNote] = useState(existing?.note ?? '');
+  const [date, setDate] = useState(existing?.date ?? today());
+
+  const amountCents = parseAmount(amountText);
+
+  async function save() {
+    if (amountCents === null || amountCents <= 0) return;
+    const fields = {
+      date,
+      type,
+      amountCents,
+      ownShareCents: amountCents,
+      ...(type === 'card_payment' ? { method } : {}),
+      ...(note.trim() ? { note: note.trim() } : {}),
+    };
+    if (existing) await updateTransaction(existing.id, fields);
+    else await addTransaction(fields);
+    onClose();
+  }
+
+  return (
+    <Sheet
+      title={copy.title}
+      onClose={onClose}
+      onSave={() => void save()}
+      canSave={amountCents !== null && amountCents > 0}
+      {...(existing ? { extraAction: <DeleteAction onDelete={() => onDelete(existing)} /> } : {})}
+    >
+      <AmountInput
+        label={copy.label}
+        value={amountText}
+        onChange={setAmountText}
+        autoFocus={!existing}
+      />
+
+      <div className="space-y-6 pb-6">
+        <p className="px-5 text-sm leading-relaxed text-dim">{copy.help}</p>
+        {/* A card payment comes out of debit or cash — that is where the money is. */}
+        {type === 'card_payment' && (
+          <MethodToggle value={method} onChange={setMethod} options={['debit', 'cash']} />
+        )}
+        <NoteDateRow note={note} date={date} onNote={setNote} onDate={setDate} />
+      </div>
+    </Sheet>
+  );
 }

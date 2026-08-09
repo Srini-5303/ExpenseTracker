@@ -12,6 +12,18 @@ export async function saveSettings(changes: Partial<Omit<Settings, 'id'>>): Prom
 }
 
 /**
+ * Null removes the limit entirely rather than storing zero, so the
+ * available-credit readout disappears instead of reading "$0.00 available".
+ */
+export async function setCreditLimit(cents: number | null): Promise<void> {
+  const current = await db.settings.get(SETTINGS_ID);
+  const next: Settings = { ...current, id: SETTINGS_ID };
+  if (cents === null) delete next.creditLimitCents;
+  else next.creditLimitCents = cents;
+  await db.settings.put(next);
+}
+
+/**
  * The credit/debit toggle defaults to whatever was used last. Kept in
  * localStorage rather than Dexie: it is a UI preference, not data worth exporting.
  */

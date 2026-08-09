@@ -30,15 +30,9 @@
   --color-ink: #e8eeef;
   --color-dim: #7c8a8e;
 
-  /* Category — the only saturated color in the app */
-  --color-cat-restaurant: #ff7a5b;
-  --color-cat-groceries: #58dd9b;
-  --color-cat-cab: #4fb0ff;
-  --color-cat-shopping: #ff7ea8;
-  --color-cat-rent: #e8c245;
-  --color-cat-utilities: #46d9d0;
-  --color-cat-subscriptions: #8e9bff;
-  --color-cat-other: #6e7b80;
+  /* Category hues — the only saturated color in the app — live in
+     lib/categories.ts, not here. They are applied as inline styles because
+     Recharts needs the value, not a class, and one source cannot drift. */
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
@@ -118,6 +112,29 @@
 @utility scroll-contain {
   overflow-y: auto;
   overscroll-behavior-y: contain;
+}
+
+/* The sheet is the only orchestrated motion in the app. Everything else settles
+   for a 120ms transform on press. */
+@keyframes sheet-in {
+  from {
+    transform: translateY(8%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@utility sheet-in {
+  animation: sheet-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@utility fade-in {
+  animation: fade-in 200ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

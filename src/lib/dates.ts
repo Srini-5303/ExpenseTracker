@@ -47,6 +47,12 @@ export function monthStart(iso: string): string {
   return `${monthKey(iso)}-01`;
 }
 
+/** Inclusive last day of the month a key names. */
+export function monthEnd(key: string): string {
+  const [y = 0, m = 1] = key.split('-').map(Number);
+  return `${key}-${new Date(y, m, 0).getDate()}`;
+}
+
 /** The month key `n` months before `key` ('2026-08' -> '2026-07'). */
 export function shiftMonth(key: string, n: number): string {
   const [y = 0, m = 1] = key.split('-').map(Number);

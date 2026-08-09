@@ -16,10 +16,6 @@ export function useRecentTransactions(limit = 20): Transaction[] {
   );
 }
 
-export function useTransaction(id: string | undefined): Transaction | undefined {
-  return useLiveQuery(() => (id ? db.transactions.get(id) : undefined), [id]);
-}
-
 /**
  * ownShareCents is computed by the caller at save time and stored as given.
  * It is never recomputed on read, so past records survive a change to split logic.
