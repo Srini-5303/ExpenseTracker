@@ -152,10 +152,18 @@ export default function CategoryDonut({
 
       <ul className="mt-4 divide-y divide-line">
         {slices.map((s) => (
+          // Hovering or holding a row drives the same readout as the ring, so
+          // either one answers the question. Nothing here is hidden behind the
+          // interaction — the row already shows its own numbers.
           <li
             key={s.category}
-            className={`flex items-center gap-3 py-2.5 text-sm ${
-              active && active.category !== s.category ? 'text-dim' : ''
+            onMouseEnter={() => setSelected(s.category)}
+            onMouseLeave={() => setSelected(null)}
+            onTouchStart={() => setSelected(s.category)}
+            onTouchEnd={() => setSelected(null)}
+            onTouchCancel={() => setSelected(null)}
+            className={`-mx-2 flex items-center gap-3 rounded-sm px-2 py-2.5 text-sm ${
+              active?.category === s.category ? 'bg-surface' : active ? 'text-dim' : ''
             }`}
           >
             <span
