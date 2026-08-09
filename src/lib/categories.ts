@@ -12,6 +12,7 @@ export const CATEGORY_ORDER: readonly Category[] = [
   'cab',
   'shopping',
   'guilty_pleasure',
+  'travel',
   'rent',
   'utilities',
   'subscriptions',
@@ -24,6 +25,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   cab: 'Cab',
   shopping: 'Shopping',
   guilty_pleasure: 'Guilty pleasure',
+  travel: 'Travel',
   rent: 'Rent',
   utilities: 'Utilities',
   subscriptions: 'Subscriptions',
@@ -35,7 +37,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
  * list dots, chart segments. A category that is teal in the donut and amber in
  * the list is a category the user cannot track.
  *
- * Nine hues. Each is snapped into the OKLCH band L 0.48–0.67 against the #0c1113
+ * Ten hues. Each is snapped into the OKLCH band L 0.48–0.67 against the #0c1113
  * surface, and lightness varies deliberately as well as hue: red and green sit
  * at opposite ends of the band because protanopia and deuteranopia collapse that
  * pair by hue alone. Validated against adjacent-pair CVD separation, the
@@ -46,6 +48,11 @@ export const CATEGORY_LABEL: Record<Category, string> = {
  * path of least resistance and hollows out the analytics. Every chart labels its
  * categories by name, so color is never the only thing carrying identity.
  *
+ * At ten categories, hue alone can no longer separate every possible pairing —
+ * two segments that land side by side in a donut may read as close. That is why
+ * every chart labels its categories by name and the donut carries a written
+ * breakdown beneath it. An eleventh would make that worse, not better.
+ *
  * This is the only place these values exist. Chips, rows, and chart segments all
  * read from here, so the mapping cannot drift between a stylesheet and a chart.
  */
@@ -55,6 +62,7 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   cab: '#2592fa',
   shopping: '#ca4b83',
   guilty_pleasure: '#8d5400',
+  travel: '#c76cc5',
   rent: '#ae9200',
   utilities: '#009393',
   subscriptions: '#7b50b9',

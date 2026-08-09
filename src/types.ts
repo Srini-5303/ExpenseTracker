@@ -11,6 +11,7 @@ export type Category =
   | 'subscriptions'
   | 'shopping' // personal shopping: clothes, electronics, household goods
   | 'guilty_pleasure'
+  | 'travel'
   | 'other';
 
 export interface Transaction {

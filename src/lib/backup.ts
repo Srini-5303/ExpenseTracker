@@ -78,6 +78,7 @@ const CATEGORIES: readonly Category[] = [
   'subscriptions',
   'shopping',
   'guilty_pleasure',
+  'travel',
   'other',
 ];
 
