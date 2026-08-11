@@ -4,14 +4,17 @@ import type { Transaction } from '@/types';
 
 /** Dexie queries live in hooks; components stay presentational. */
 
+/**
+ * Newest first, and entry order breaks a tie within a day — otherwise the
+ * transaction you just added can land anywhere among the others dated today.
+ */
 export function useTransactions(): Transaction[] {
-  return useLiveQuery(() => db.transactions.orderBy('date').reverse().toArray(), [], []);
-}
-
-export function useRecentTransactions(limit = 20): Transaction[] {
   return useLiveQuery(
-    () => db.transactions.orderBy('createdAt').reverse().limit(limit).toArray(),
-    [limit],
+    async () => {
+      const txs = await db.transactions.toArray();
+      return txs.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+    },
+    [],
     [],
   );
 }
