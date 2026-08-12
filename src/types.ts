@@ -51,8 +51,8 @@ export interface Subscription {
   lastLoggedMonth: string; // 'YYYY-MM'; set at creation so it never prompts twice
 }
 
+/** Stored as fields on the account's own document. */
 export interface Settings {
-  id: 'settings';
   creditLimitCents?: number; // optional, enables the available-credit readout
   lastExportAt?: number;
 }

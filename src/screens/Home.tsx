@@ -31,8 +31,7 @@ export default function Home({ onGoToData }: { onGoToData: () => void }) {
 
   async function remove(tx: Transaction) {
     setSheet(null);
-    const removed = await deleteTransaction(tx.id);
-    if (removed) setDeleted(removed);
+    setDeleted(await deleteTransaction(tx));
   }
 
   function select(tx: Transaction) {

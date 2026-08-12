@@ -4,9 +4,9 @@ Guidance for Claude Code when working in this repository.
 
 ## Project
 
-A personal finance tracker, built as an installable PWA, used by a single person on an iPhone. It records daily transactions, tracks income, tracks whether each purchase went on credit or debit, and shows spending analytics by category and by time period.
+A personal finance tracker, built as an installable PWA, used on an iPhone. It records daily transactions, tracks income, tracks whether each purchase went on credit or debit, and shows spending analytics by category and by time period.
 
-This is a personal tool, not a product. There are no other users, no accounts, no login. Optimize for fast daily entry and clear answers to "where did my money go."
+Accounts exist, but there is no sharing: each account is a private ledger, and nobody ever sees anyone else's spending. Optimize for fast daily entry and clear answers to "where did my money go."
 
 ## Non-goals
 
@@ -14,7 +14,7 @@ Do not build these unless explicitly asked:
 
 - AI categorization, receipt scanning, or LLM calls of any kind. Categories are a fixed list.
 - Bank or card syncing (Plaid and similar).
-- Multi-user accounts, auth, or a server-side database.
+- **Shared or household ledgers.** Accounts exist so several people can use the app; they never see each other's data, and no feature should let them.
 - Debt tracking of any form. The app never shows what roommates owe, never ages a balance, never nags about settling up.
 - Budgeting targets, alerts, or goal tracking.
 - Currency conversion. Everything is USD.
@@ -24,11 +24,13 @@ Do not build these unless explicitly asked:
 - React + TypeScript, built with Vite
 - Tailwind CSS for styling
 - Recharts for charts
-- Dexie (IndexedDB wrapper) for storage, all data stays on device
+- Firebase Auth (email and password) and Cloud Firestore for storage
 - `vite-plugin-pwa` for the manifest and service worker
 - Deployed as a static site (Vercel, Netlify, or Cloudflare Pages), installed via Safari's "Add to Home Screen"
 
-No backend. No API routes. If a feature seems to need a server, raise it before building it.
+Still no backend of our own and no API routes: the Firebase SDK talks to Firestore straight from the browser, and `firestore.rules` is the only thing enforcing privacy. Firestore's persistent cache keeps the app working offline, so entry never waits on a network.
+
+Every ledger lives under `users/{uid}`. Config comes from `.env.local` — see `.env.example`.
 
 ## Two concepts that matter
 
@@ -177,13 +179,11 @@ Every one of these uses `ownShareCents`, and every one excludes income, reimburs
 
 ### Data safety
 
-Local-only storage means the data is one cleared cache away from gone. Build these early, not as an afterthought:
+The account survives a lost phone. It does not survive a mistaken delete, a bug that writes garbage, or wanting the data somewhere that is not Google's — sync faithfully replicates damage to every device. So export stays:
 
 - Export all data to a JSON file
 - Import from that file, with a merge-or-replace choice
 - A visible reminder to export if the last export was over a month ago
-
-For context: iOS evicts IndexedDB for sites unused for seven days, but this does not apply once the app is installed to the home screen. Installation is load-bearing, not cosmetic.
 
 ## Design direction
 
@@ -228,7 +228,7 @@ The app is developed and reviewed on a laptop but lives on an iPhone 16 Pro Max.
 
 - Chrome DevTools has no iPhone 16 Pro Max preset. Add a custom device at 440 x 956 with a device pixel ratio of 3.
 - Service workers require HTTPS, and a LAN address like `192.168.x.x` does not qualify even though `localhost` does. Testing install behavior over the local network therefore needs a tunnel such as `cloudflared` or `ngrok`, or a deploy to a hosting preview URL. Do not spend time debugging a service worker that is failing only because the origin is insecure.
-- **Storage does not transfer between Safari and the installed app.** They are separate origins as far as IndexedDB is concerned. Anything entered while testing in Safari on the phone will not appear once the app is added to the home screen, and this looks exactly like data loss. Build the export and import feature before doing any real data entry.
+- **Sign-in state does not transfer between Safari and the installed app.** They are separate origins, so the installed app starts signed out. The data is all still there — sign in again and it syncs down. Before accounts existed this was genuine data loss; now it is one login.
 - After the app is installed, a new deploy is picked up by the service worker but not shown until the app is fully closed and reopened. When a change appears to have no effect on the phone, check this before assuming the deploy failed.
 
 ## Conventions
@@ -237,8 +237,8 @@ The app is developed and reviewed on a laptop but lives on an iPhone 16 Pro Max.
 - All money handling goes through a single `money.ts` module: parsing input, arithmetic, splitting, formatting. Money math outside that module is a bug.
 - All date handling goes through a single `dates.ts` module: period boundaries, week start, month keys. **The week runs Monday through Sunday.** Do not use `date-fns` or `Day.js` defaults without setting `weekStartsOn: 1`, since both treat Sunday as day zero and would silently shift every weekly total by a day.
 - All balances and totals go through a single `derive.ts` module. Every figure in the UI reads from there, so the `amountCents` vs. `ownShareCents` rule lives in exactly one place and cannot be applied inconsistently across screens.
-- Keep components presentational, keep Dexie queries in hooks
-- No state management library. React state and Dexie's live queries are enough at this scale.
+- Keep components presentational, keep Firestore queries and `onSnapshot` subscriptions in hooks
+- No state management library. React state and Firestore snapshots are enough at this scale.
 - No unnecessary/extra lines of code. Every line of code should have value.
 
 ## Working agreements

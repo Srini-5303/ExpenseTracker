@@ -1,12 +1,15 @@
-import { db, SETTINGS_ID } from '@/lib/db';
+import { deleteDoc, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase';
+import { requireUid, subscriptionsRef, transactionsRef, userDoc } from '@/lib/db';
 import { today } from '@/lib/dates';
 import type { Category, PayMethod, Settings, Subscription, Transaction, TxType } from '@/types';
 
 /**
- * Local-only storage is one cleared cache away from gone, and Safari and the
- * installed home-screen app are separate IndexedDB origins — data entered while
- * testing in Safari will not appear once installed, which looks exactly like
- * data loss. This file is the only bridge, so it ships before real data entry.
+ * The account survives a lost phone, but not a mistaken delete, a bug that
+ * writes garbage, or wanting the data somewhere that is not Google's. Sync
+ * faithfully replicates damage to every device; a file on disk does not.
+ *
+ * That is why export outlived the local-only storage it was written for.
  */
 
 // v2 added recurring subscriptions, v3 the optional trip name. Older files still
@@ -24,14 +27,21 @@ export interface BackupFile {
 }
 
 export async function exportAll(): Promise<BackupFile> {
-  const [transactions, subscriptions, settings] = await Promise.all([
-    db.transactions.orderBy('date').toArray(),
-    db.subscriptions.toArray(),
-    db.settings.get(SETTINGS_ID),
+  const uid = requireUid();
+  const [txSnap, subSnap, userSnap] = await Promise.all([
+    getDocs(transactionsRef(uid)),
+    getDocs(subscriptionsRef(uid)),
+    getDoc(userDoc(uid)),
   ]);
   const exportedAt = Date.now();
-  await db.settings.put({ ...settings, id: SETTINGS_ID, lastExportAt: exportedAt });
-  return { version: EXPORT_VERSION, exportedAt, transactions, subscriptions, settings };
+  await setDoc(userDoc(uid), { lastExportAt: exportedAt }, { merge: true });
+  return {
+    version: EXPORT_VERSION,
+    exportedAt,
+    transactions: txSnap.docs.map((d) => d.data()).sort((a, b) => a.date.localeCompare(b.date)),
+    subscriptions: subSnap.docs.map((d) => d.data()),
+    settings: userSnap.data(),
+  };
 }
 
 export function downloadBackup(backup: BackupFile): void {
@@ -48,23 +58,46 @@ export type ImportMode = 'merge' | 'replace';
 
 /**
  * merge   — upsert by id, keeping anything the file does not mention.
- * replace — clear every table first.
+ * replace — delete everything in the account first.
  *
- * Both run in one transaction so a failure part way through cannot leave the
- * database half-wiped.
+ * Firestore batches cap at 500 writes, so this chunks. Deletes are committed
+ * before any write, so a `replace` cannot end up interleaving old and new rows.
  */
 export async function importAll(file: BackupFile, mode: ImportMode): Promise<number> {
-  await db.transaction('rw', db.transactions, db.subscriptions, db.settings, async () => {
-    if (mode === 'replace') {
-      await db.transactions.clear();
-      await db.subscriptions.clear();
-      await db.settings.clear();
-    }
-    await db.transactions.bulkPut(file.transactions);
-    await db.subscriptions.bulkPut(file.subscriptions);
-    if (file.settings) await db.settings.put({ ...file.settings, id: SETTINGS_ID });
-  });
+  const uid = requireUid();
+
+  if (mode === 'replace') {
+    const [txSnap, subSnap] = await Promise.all([
+      getDocs(transactionsRef(uid)),
+      getDocs(subscriptionsRef(uid)),
+    ]);
+    await commitInChunks(txSnap.docs, (batch, d) => batch.delete(d.ref));
+    await commitInChunks(subSnap.docs, (batch, d) => batch.delete(d.ref));
+    await deleteDoc(userDoc(uid));
+  }
+
+  await commitInChunks(file.transactions, (batch, tx) =>
+    batch.set(doc(transactionsRef(uid), tx.id), tx),
+  );
+  await commitInChunks(file.subscriptions, (batch, sub) =>
+    batch.set(doc(subscriptionsRef(uid), sub.id), sub),
+  );
+  if (file.settings) await setDoc(userDoc(uid), file.settings, { merge: true });
+
   return file.transactions.length;
+}
+
+const BATCH_LIMIT = 500;
+
+async function commitInChunks<T>(
+  items: readonly T[],
+  add: (batch: ReturnType<typeof writeBatch>, item: T) => void,
+): Promise<void> {
+  for (let i = 0; i < items.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(firestore);
+    for (const item of items.slice(i, i + BATCH_LIMIT)) add(batch, item);
+    await batch.commit();
+  }
 }
 
 const TX_TYPES: readonly TxType[] = ['expense', 'income', 'reimbursement', 'card_payment'];
@@ -176,7 +209,7 @@ function readTransaction(row: unknown, index: number): Transaction {
 function readSettings(raw: unknown): Settings | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
   const r = raw as Record<string, unknown>;
-  const settings: Settings = { id: SETTINGS_ID };
+  const settings: Settings = {};
   if (Number.isInteger(r['creditLimitCents'])) {
     settings.creditLimitCents = r['creditLimitCents'] as number;
   }

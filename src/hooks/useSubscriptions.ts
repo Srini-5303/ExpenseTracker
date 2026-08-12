@@ -1,10 +1,22 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, newId } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { newId, requireUid, subscriptionsRef } from '@/lib/db';
+import { useUid } from '@/hooks/useAuth';
 import { currentMonthKey, dayInMonth, today } from '@/lib/dates';
 import type { Subscription } from '@/types';
 
 export function useSubscriptions(): Subscription[] {
-  return useLiveQuery(() => db.subscriptions.orderBy('dayOfMonth').toArray(), [], []);
+  const uid = useUid();
+  const [subs, setSubs] = useState<Subscription[]>([]);
+
+  useEffect(() => {
+    if (!uid) return setSubs([]);
+    return onSnapshot(subscriptionsRef(uid), (snap) =>
+      setSubs(snap.docs.map((d) => d.data()).sort((a, b) => a.dayOfMonth - b.dayOfMonth)),
+    );
+  }, [uid]);
+
+  return subs;
 }
 
 /**
@@ -22,23 +34,29 @@ export function useDueSubscriptions(): Subscription[] {
 export async function addSubscription(
   fields: Omit<Subscription, 'id' | 'lastLoggedMonth'>,
 ): Promise<void> {
+  const uid = requireUid();
+  const id = newId();
   // Logged for the current month at creation, because the transaction that
   // created it is this month's charge.
-  await db.subscriptions.add({ ...fields, id: newId(), lastLoggedMonth: currentMonthKey() });
+  await setDoc(doc(subscriptionsRef(uid), id), {
+    ...fields,
+    id,
+    lastLoggedMonth: currentMonthKey(),
+  });
 }
 
 export async function updateSubscription(
   id: string,
   changes: Partial<Omit<Subscription, 'id'>>,
 ): Promise<void> {
-  await db.subscriptions.update(id, changes);
+  await setDoc(doc(subscriptionsRef(requireUid()), id), changes, { merge: true });
 }
 
 /** Answering "no longer active" removes the rule only. Past charges are history. */
 export async function removeSubscription(id: string): Promise<void> {
-  await db.subscriptions.delete(id);
+  await deleteDoc(doc(subscriptionsRef(requireUid()), id));
 }
 
 export async function markLogged(id: string): Promise<void> {
-  await db.subscriptions.update(id, { lastLoggedMonth: currentMonthKey() });
+  await updateSubscription(id, { lastLoggedMonth: currentMonthKey() });
 }

@@ -1,14 +1,24 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, SETTINGS_ID } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { deleteField, onSnapshot, setDoc } from 'firebase/firestore';
+import { requireUid, userDoc, userDocRaw } from '@/lib/db';
+import { useUid } from '@/hooks/useAuth';
 import type { PayMethod, Settings } from '@/types';
 
+/** Settings are fields on the account's own document, not a collection of one. */
 export function useSettings(): Settings | undefined {
-  return useLiveQuery(() => db.settings.get(SETTINGS_ID), []);
+  const uid = useUid();
+  const [settings, setSettings] = useState<Settings | undefined>(undefined);
+
+  useEffect(() => {
+    if (!uid) return setSettings(undefined);
+    return onSnapshot(userDoc(uid), (snap) => setSettings(snap.data()));
+  }, [uid]);
+
+  return settings;
 }
 
-export async function saveSettings(changes: Partial<Omit<Settings, 'id'>>): Promise<void> {
-  const current = await db.settings.get(SETTINGS_ID);
-  await db.settings.put({ ...current, ...changes, id: SETTINGS_ID });
+export async function saveSettings(changes: Partial<Settings>): Promise<void> {
+  await setDoc(userDoc(requireUid()), changes, { merge: true });
 }
 
 /**
@@ -16,16 +26,16 @@ export async function saveSettings(changes: Partial<Omit<Settings, 'id'>>): Prom
  * available-credit readout disappears instead of reading "$0.00 available".
  */
 export async function setCreditLimit(cents: number | null): Promise<void> {
-  const current = await db.settings.get(SETTINGS_ID);
-  const next: Settings = { ...current, id: SETTINGS_ID };
-  if (cents === null) delete next.creditLimitCents;
-  else next.creditLimitCents = cents;
-  await db.settings.put(next);
+  await setDoc(
+    userDocRaw(requireUid()),
+    { creditLimitCents: cents === null ? deleteField() : cents },
+    { merge: true },
+  );
 }
 
 /**
- * The credit/debit toggle defaults to whatever was used last. Kept in
- * localStorage rather than Dexie: it is a UI preference, not data worth exporting.
+ * The credit/debit toggle defaults to whatever was used last. Kept on the device
+ * rather than in the account: it is a habit of this phone, not data worth syncing.
  */
 const LAST_METHOD_KEY = 'lastMethod';
 

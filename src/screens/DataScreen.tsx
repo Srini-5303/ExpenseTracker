@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Subscription } from '@/types';
 import { useSettings, setCreditLimit } from '@/hooks/useSettings';
+import { signOutUser, useAuth } from '@/hooks/useAuth';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import SubscriptionSheet from '@/screens/SubscriptionSheet';
 import { CATEGORY_COLOR } from '@/lib/categories';
@@ -17,6 +18,7 @@ import { formatCents, parseAmount } from '@/lib/money';
  */
 export default function DataScreen() {
   const settings = useSettings();
+  const { user } = useAuth();
   const subs = useSubscriptions();
   const [editing, setEditing] = useState<Subscription | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -67,6 +69,19 @@ export default function DataScreen() {
             : 'You have never exported. Clearing this browser would take everything with it.'}
         </p>
       )}
+
+      <section className="mt-6 border-t border-line pt-5">
+        <h2 className="eyebrow">Account</h2>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="min-w-0 flex-1 truncate text-sm text-dim">{user?.email}</span>
+          <button
+            onClick={() => void signOutUser()}
+            className="shrink-0 rounded-full border border-line px-4 py-2 text-sm active:scale-[0.98]"
+          >
+            Sign out
+          </button>
+        </div>
+      </section>
 
       <section className="mt-8 border-t border-line pt-5">
         <h2 className="eyebrow">Export</h2>

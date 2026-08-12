@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Every ledger lives under users/{uid}. The only account that can read or write
+// a document is the one that owns it, so two people using this app can never
+// see each other's spending.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}
