@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
 
@@ -13,15 +17,41 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function clear() {
+    setError(null);
+    setNotice(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    clear();
     setBusy(true);
     try {
       const go = creating ? createUserWithEmailAndPassword : signInWithEmailAndPassword;
       await go(auth, email.trim(), password);
+    } catch (caught) {
+      setError(readable(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * The only way back into an account. Without it a forgotten password means the
+   * ledger is gone for good, since nobody else can reset it.
+   */
+  async function resetPassword() {
+    clear();
+    if (email.trim() === '') return setError('Enter your email address first.');
+    setBusy(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      // Deliberately does not confirm whether the account exists — that would
+      // let anyone test which email addresses are registered.
+      setNotice('If that address has an account, a reset link is on its way. Check spam too.');
     } catch (caught) {
       setError(readable(caught));
     } finally {
@@ -62,9 +92,9 @@ export default function SignIn() {
           />
         </label>
 
-        {error && (
-          <p role="alert" className="rounded-md bg-raised px-4 py-3 text-sm">
-            {error}
+        {(error ?? notice) && (
+          <p role="alert" className="rounded-md bg-raised px-4 py-3 text-sm leading-relaxed">
+            {error ?? notice}
           </p>
         )}
 
@@ -77,15 +107,26 @@ export default function SignIn() {
         </button>
       </form>
 
-      <button
-        onClick={() => {
-          setCreating(!creating);
-          setError(null);
-        }}
-        className="mt-6 text-sm text-dim underline underline-offset-4"
-      >
-        {creating ? 'I already have an account' : 'Create an account'}
-      </button>
+      <div className="mt-6 flex items-center justify-between">
+        <button
+          onClick={() => {
+            setCreating(!creating);
+            clear();
+          }}
+          className="text-sm text-dim underline underline-offset-4"
+        >
+          {creating ? 'I already have an account' : 'Create an account'}
+        </button>
+        {!creating && (
+          <button
+            onClick={() => void resetPassword()}
+            disabled={busy}
+            className="text-sm text-dim underline underline-offset-4 disabled:opacity-50"
+          >
+            Forgot password
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -95,6 +136,7 @@ function readable(caught: unknown): string {
   if (!(caught instanceof FirebaseError)) return 'Something went wrong. Try again.';
   switch (caught.code) {
     case 'auth/invalid-email':
+    case 'auth/missing-email':
       return 'That email address is not valid.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
