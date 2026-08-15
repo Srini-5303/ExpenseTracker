@@ -100,7 +100,14 @@ async function commitInChunks<T>(
   }
 }
 
-const TX_TYPES: readonly TxType[] = ['expense', 'income', 'reimbursement', 'card_payment'];
+const TX_TYPES: readonly TxType[] = [
+  'expense',
+  'income',
+  'reimbursement',
+  'card_payment',
+  'savings_deposit',
+  'savings_withdrawal',
+];
 const METHODS: readonly PayMethod[] = ['credit', 'debit', 'cash'];
 const CATEGORIES: readonly Category[] = [
   'groceries',

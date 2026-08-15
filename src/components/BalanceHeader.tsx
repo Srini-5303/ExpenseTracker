@@ -11,10 +11,12 @@ export default function BalanceHeader({
   cashOnHand,
   cardBalance,
   availableCredit,
+  savingsBalance,
 }: {
   cashOnHand: number;
   cardBalance: number;
   availableCredit: number | undefined;
+  savingsBalance: number;
 }) {
   return (
     <header className="pt-8">
@@ -32,6 +34,13 @@ export default function BalanceHeader({
           <div className="mt-1 flex items-baseline justify-between text-xs text-dim">
             <span>Available credit</span>
             <span className="num">{formatCents(availableCredit)}</span>
+          </div>
+        )}
+        {/* Only once there is something in it — an empty row reads as a nag. */}
+        {savingsBalance !== 0 && (
+          <div className="mt-2 flex items-baseline justify-between">
+            <span className="text-sm text-dim">Savings</span>
+            <span className="num text-lg">{formatCents(savingsBalance)}</span>
           </div>
         )}
       </div>

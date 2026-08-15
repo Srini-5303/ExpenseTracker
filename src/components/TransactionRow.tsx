@@ -8,6 +8,8 @@ const TYPE_LABEL: Record<TxType, string> = {
   income: 'Paycheck',
   reimbursement: 'Money back',
   card_payment: 'Card payment',
+  savings_deposit: 'To savings',
+  savings_withdrawal: 'From savings',
 };
 
 /**

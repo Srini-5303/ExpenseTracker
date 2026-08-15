@@ -1,6 +1,6 @@
 import type { Category, PayMethod, Transaction } from '@/types';
 import { sumCents } from '@/lib/money';
-import { inRange, monthKey } from '@/lib/dates';
+import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
 
 /**
  * Every balance and total in the UI reads from here, so the amountCents vs
@@ -31,10 +31,58 @@ export function cashOnHand(txs: readonly Transaction[]): number {
         case 'expense':
           return t.method === 'credit' ? 0 : -t.amountCents;
         case 'card_payment':
+        case 'savings_deposit':
           return -t.amountCents;
+        case 'savings_withdrawal':
+          return t.amountCents;
       }
     }),
   );
+}
+
+/**
+ * What is sitting in savings. Like a card payment, a deposit is a TRANSFER, not
+ * an expense: the money is still yours, it just moved. Counting it as spending
+ * would make a month of diligent saving look like a month of overspending.
+ */
+export function savingsBalance(txs: readonly Transaction[]): number {
+  return sumCents(
+    txs.map((t) => {
+      if (t.type === 'savings_deposit') return t.amountCents;
+      if (t.type === 'savings_withdrawal') return -t.amountCents;
+      return 0;
+    }),
+  );
+}
+
+/**
+ * The running savings balance at the end of each month that has any activity,
+ * plus every month in between — a flat stretch is information, and skipping it
+ * would make the line lie about how fast the balance grew.
+ */
+export function savingsOverTime(txs: readonly Transaction[]): { month: string; cents: number }[] {
+  const moves = txs.filter(
+    (t) => t.type === 'savings_deposit' || t.type === 'savings_withdrawal',
+  );
+  if (moves.length === 0) return [];
+
+  const byMonth = new Map<string, number>();
+  for (const t of moves) {
+    const key = monthKey(t.date);
+    const delta = t.type === 'savings_deposit' ? t.amountCents : -t.amountCents;
+    byMonth.set(key, (byMonth.get(key) ?? 0) + delta);
+  }
+
+  const months = [...byMonth.keys()].sort();
+  const first = months[0]!;
+  const last = monthKey(today());
+  const series: { month: string; cents: number }[] = [];
+  let running = 0;
+  for (let key = first; key <= last; key = shiftMonth(key, 1)) {
+    running += byMonth.get(key) ?? 0;
+    series.push({ month: key, cents: running });
+  }
+  return series;
 }
 
 export function cardBalance(txs: readonly Transaction[]): number {
@@ -55,8 +103,9 @@ export function availableCredit(
   return creditLimitCents === undefined ? undefined : creditLimitCents - cardBalance(txs);
 }
 
+/** Everything you have, minus what you owe. Savings counts — it is still yours. */
 export function netPosition(txs: readonly Transaction[]): number {
-  return cashOnHand(txs) - cardBalance(txs);
+  return cashOnHand(txs) + savingsBalance(txs) - cardBalance(txs);
 }
 
 /** Own-share spending in an inclusive date range. Payment method is irrelevant. */

@@ -15,6 +15,7 @@ export function useBalances() {
       hasTransactions: txs.length > 0,
       cashOnHand: derive.cashOnHand(txs),
       cardBalance: derive.cardBalance(txs),
+      savingsBalance: derive.savingsBalance(txs),
       availableCredit: derive.availableCredit(txs, settings?.creditLimitCents),
       spentToday: derive.spend(txs, now, now),
       spentThisWeek: derive.spend(txs, weekStart(now), now), // week runs Mon–Sun

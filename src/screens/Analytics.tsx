@@ -5,6 +5,7 @@ import CategoryDonut from '@/features/analytics/CategoryDonut';
 import SpendOverTime from '@/features/analytics/SpendOverTime';
 import MonthComparison from '@/features/analytics/MonthComparison';
 import MethodSplitBar from '@/features/analytics/MethodSplitBar';
+import SavingsOverTime from '@/features/analytics/SavingsOverTime';
 import TripTotals from '@/features/analytics/TripTotals';
 
 /**
@@ -42,6 +43,7 @@ export default function Analytics() {
       <SpendOverTime txs={txs} month={month} />
       <MonthComparison txs={txs} month={month} />
       <MethodSplitBar txs={txs} month={month} />
+      <SavingsOverTime txs={txs} />
       <TripTotals txs={txs} />
     </div>
   );

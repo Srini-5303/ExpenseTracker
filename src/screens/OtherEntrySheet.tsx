@@ -22,8 +22,10 @@ type OtherType = Exclude<TxType, 'expense'>;
  *  card_payment  — moves money from cash to the card balance. It is not an
  *                  expense and must never reach analytics: the purchases behind
  *                  it were already recorded when they happened.
+ *  savings       — a transfer in either direction. Also not spending: a month of
+ *                  diligent saving must not read as a month of overspending.
  *
- * All three set ownShareCents equal to amountCents.
+ * All of them set ownShareCents equal to amountCents.
  */
 const COPY: Record<OtherType, { title: string; label: string; help: string }> = {
   income: {
@@ -40,6 +42,16 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
     title: 'Card payment',
     label: 'Amount paid',
     help: 'Pays down the card from cash. Never counts as spending — those purchases were logged when you made them.',
+  },
+  savings_deposit: {
+    title: 'To savings',
+    label: 'Amount saved',
+    help: 'Moves cash into savings. Not spending — the money is still yours, it just moved.',
+  },
+  savings_withdrawal: {
+    title: 'From savings',
+    label: 'Amount taken out',
+    help: 'Moves savings back into cash. Whatever you then spend it on gets logged as its own expense.',
   },
 };
 

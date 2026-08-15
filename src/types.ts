@@ -1,4 +1,10 @@
-export type TxType = 'expense' | 'income' | 'reimbursement' | 'card_payment';
+export type TxType =
+  | 'expense'
+  | 'income'
+  | 'reimbursement'
+  | 'card_payment'
+  | 'savings_deposit'
+  | 'savings_withdrawal';
 
 export type PayMethod = 'credit' | 'debit' | 'cash';
 

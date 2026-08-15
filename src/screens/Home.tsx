@@ -47,6 +47,7 @@ export default function Home({ onGoToData }: { onGoToData: () => void }) {
           cashOnHand={b.cashOnHand}
           cardBalance={b.cardBalance}
           availableCredit={b.availableCredit}
+          savingsBalance={b.savingsBalance}
         />
         <SpendSummary today={b.spentToday} week={b.spentThisWeek} month={b.spentThisMonth} />
         {/* Due reminders come first, and while any is pending the generic nudge

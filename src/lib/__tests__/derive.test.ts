@@ -9,6 +9,8 @@ import {
   methodTotals,
   needsSubscriptionNudge,
   netPosition,
+  savingsBalance,
+  savingsOverTime,
   spend,
   tripTotals,
 } from '@/lib/derive';
@@ -105,8 +107,10 @@ describe('availableCredit and netPosition', () => {
     expect(availableCredit(fixture, 500000)).toBe(500000 - cardBalance(fixture));
   });
 
-  it('is cash minus card debt', () => {
-    expect(netPosition(fixture)).toBe(cashOnHand(fixture) - cardBalance(fixture));
+  it('is cash plus savings minus card debt', () => {
+    expect(netPosition(fixture)).toBe(
+      cashOnHand(fixture) + savingsBalance(fixture) - cardBalance(fixture),
+    );
   });
 });
 
@@ -156,6 +160,43 @@ describe('breakdowns', () => {
     const totals = methodTotals(fixture, ...MONTH);
     expect(totals.get('credit')).toBe(5000); // own share, not the 15000 charge
     expect(totals.get('debit')).toBe(4000); // the 20000 card payment is not spending
+  });
+});
+
+describe('savings', () => {
+  const saving: Transaction[] = [
+    tx({ type: 'income', amountCents: 300000, date: '2026-06-01' }),
+    tx({ type: 'savings_deposit', amountCents: 50000, date: '2026-06-05', method: 'debit' }),
+    tx({ type: 'savings_deposit', amountCents: 50000, date: '2026-08-05', method: 'debit' }),
+    tx({ type: 'savings_withdrawal', amountCents: 20000, date: '2026-08-20', method: 'debit' }),
+  ];
+
+  it('moves money out of cash without being spending', () => {
+    expect(savingsBalance(saving)).toBe(50000 + 50000 - 20000);
+    expect(cashOnHand(saving)).toBe(300000 - 50000 - 50000 + 20000);
+    // The whole point: a month of diligent saving is not a month of overspending.
+    expect(spend(saving, '2026-01-01', '2026-12-31')).toBe(0);
+    expect(categoryTotals(saving, '2026-01-01', '2026-12-31').size).toBe(0);
+  });
+
+  it('never touches the card balance', () => {
+    expect(cardBalance(saving)).toBe(0);
+  });
+
+  it('runs the balance forward through months with no activity', () => {
+    const series = savingsOverTime(saving);
+    // June, then a flat July, then August. Skipping July would make the line
+    // claim the balance climbed faster than it did.
+    expect(series.slice(0, 3)).toEqual([
+      { month: '2026-06', cents: 50000 },
+      { month: '2026-07', cents: 50000 },
+      { month: '2026-08', cents: 80000 },
+    ]);
+  });
+
+  it('is empty until something is saved', () => {
+    expect(savingsOverTime(fixture)).toEqual([]);
+    expect(savingsBalance(fixture)).toBe(0);
   });
 });
 
