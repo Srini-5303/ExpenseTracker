@@ -89,14 +89,26 @@ Reimbursements work the same way: money coming back raises cash, is not income, 
 
 ---
 
+## Nudges
+
+Two separate reminders exist, and they are easy to confuse.
+
+**The recurring prompt** belongs to a subscription you set up. It appears on that subscription's billing day, clamped to the month's length so day 31 becomes 28 February rather than skipping the month. It waits until answered, and opening the app late still surfaces it — a missed day is not a skipped month.
+
+**The generic nudge** catches subscriptions you never set a reminder for. It appears from the **25th** (`SUBSCRIPTION_NUDGE_DAY` in `derive.ts`) while the month has no subscription expense, and only when no recurring subscription exists at all. Held until late in the month because most subscriptions have not billed yet on the 1st, and a reminder that is usually premature stops being read.
+
+Cancel every recurring subscription and the generic nudge returns — an empty list means the gap it was written for is open again.
+
+---
+
 ## Features
 
 - **Daily entry** — amount, category, credit/debit, split, note, date. Splitting takes a headcount or an exact own share.
 - **Ten categories**, fixed. Colours are validated for colourblind separation and contrast, not chosen by eye.
-- **Trips** — an orthogonal flag on any expense, so a holiday dinner is still `restaurant` and trip totals do not double-count.
-- **Subscriptions** — a monthly prompt asks whether a service is still active before anything is logged. Nothing is auto-entered.
-- **Savings** — deposits and withdrawals, with a running balance charted over time.
-- **Analytics** — category donut, daily bars, month-over-month comparison, credit vs debit split, savings curve, trip breakdowns.
+- **Trips** — an orthogonal flag on any expense, so a holiday dinner is still `restaurant` and trip totals do not double-count. Tap a trip in Analytics to see every charge behind the total.
+- **Subscriptions** — set a billing day and the home screen asks, on that day, whether the service is still active. Yes logs the charge; no deletes the reminder and leaves past charges alone. Nothing is ever auto-entered.
+- **Savings** — deposits and withdrawals, with a running balance charted over time. Both are transfers, so neither reaches the spending figures.
+- **Analytics** — category donut, daily bars, month-over-month comparison, credit vs debit split, savings curve, trip breakdowns. The donut responds to hover and touch: hold a segment or a row to read that category's exact figures.
 
 ---
 
