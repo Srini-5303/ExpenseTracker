@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Category, Transaction, TxType } from '@/types';
 import { useBalances } from '@/hooks/useDerived';
 import { deleteTransaction, restoreTransaction } from '@/hooks/useTransactions';
-import { useDueSubscriptions } from '@/hooks/useSubscriptions';
+import { dueSubscriptions, useSubscriptions } from '@/hooks/useSubscriptions';
 import BalanceHeader from '@/components/BalanceHeader';
 import SpendSummary from '@/components/SpendSummary';
 import SubscriptionNudge from '@/components/SubscriptionNudge';
@@ -22,7 +22,8 @@ type SheetState =
 
 export default function Home() {
   const b = useBalances();
-  const due = useDueSubscriptions();
+  const subs = useSubscriptions();
+  const due = dueSubscriptions(subs);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [deleted, setDeleted] = useState<Transaction | null>(null);
 
@@ -52,7 +53,10 @@ export default function Home() {
         {due.map((sub) => (
           <SubscriptionPrompt key={sub.id} sub={sub} />
         ))}
-        {due.length === 0 && b.hasTransactions && b.showSubscriptionNudge && (
+        {/* Once a recurring reminder exists, those prompts do this job better.
+            Cancel them all and the nudge comes back — an empty list means the
+            gap it was written for is open again. */}
+        {subs.length === 0 && b.hasTransactions && b.showSubscriptionNudge && (
           <SubscriptionNudge
             onLog={() => setSheet({ kind: 'expense', initialCategory: 'subscriptions' })}
           />

@@ -44,7 +44,7 @@ export default function SubscriptionSheet({
           onClick={() => void stop()}
           className="w-full rounded-full border border-line py-3 text-sm text-dim active:scale-[0.98] active:text-ink"
         >
-          Stop reminding me
+          Subscription cancelled
         </button>
       }
     >

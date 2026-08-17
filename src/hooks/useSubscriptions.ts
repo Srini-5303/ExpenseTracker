@@ -23,9 +23,11 @@ export function useSubscriptions(): Subscription[] {
  * Due means: this month has not been logged yet, and the billing day has arrived.
  * Opening the app late still surfaces the prompt — a missed day is not a skipped
  * month.
+ *
+ * A plain function rather than a hook so a caller that already has the list does
+ * not open a second listener on the same collection.
  */
-export function useDueSubscriptions(): Subscription[] {
-  const subs = useSubscriptions();
+export function dueSubscriptions(subs: readonly Subscription[]): Subscription[] {
   const month = currentMonthKey();
   const now = today();
   return subs.filter((s) => s.lastLoggedMonth !== month && dayInMonth(month, s.dayOfMonth) <= now);
