@@ -193,8 +193,18 @@ export function tripTotals(txs: readonly Transaction[]): TripTotal[] {
   return [...totals.values()].sort((a, b) => b.to.localeCompare(a.to));
 }
 
-/** True when the month has no subscription expense yet — drives the home-screen nudge. */
-export function needsSubscriptionNudge(txs: readonly Transaction[], month: string): boolean {
+/**
+ * Held back until late in the month rather than appearing on the 1st. Most
+ * subscriptions have not billed yet at the start of a month, so an early nudge
+ * is asking about something that has not happened — and a reminder that is
+ * usually premature stops being read.
+ */
+export const SUBSCRIPTION_NUDGE_DAY = 25;
+
+/** True from the nudge day onward, while the month still has no subscription expense. */
+export function needsSubscriptionNudge(txs: readonly Transaction[], todayISO: string): boolean {
+  if (Number(todayISO.slice(-2)) < SUBSCRIPTION_NUDGE_DAY) return false;
+  const month = monthKey(todayISO);
   return !txs.some(
     (t) => isExpense(t) && t.category === 'subscriptions' && monthKey(t.date) === month,
   );

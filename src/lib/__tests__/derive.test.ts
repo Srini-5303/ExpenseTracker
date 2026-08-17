@@ -249,15 +249,26 @@ describe('tripTotals', () => {
 });
 
 describe('needsSubscriptionNudge', () => {
-  it('shows until the month has a subscription entry', () => {
-    expect(needsSubscriptionNudge(fixture, '2026-08')).toBe(true);
-    const sub = tx({
-      type: 'expense',
-      amountCents: 1099,
-      category: 'subscriptions',
-      method: 'credit',
-    });
-    expect(needsSubscriptionNudge([...fixture, sub], '2026-08')).toBe(false);
-    expect(needsSubscriptionNudge([...fixture, sub], '2026-09')).toBe(true);
+  const sub = tx({
+    type: 'expense',
+    amountCents: 1099,
+    date: '2026-08-26',
+    category: 'subscriptions',
+    method: 'credit',
+  });
+
+  it('stays quiet until the 25th', () => {
+    expect(needsSubscriptionNudge(fixture, '2026-08-01')).toBe(false);
+    expect(needsSubscriptionNudge(fixture, '2026-08-24')).toBe(false);
+    expect(needsSubscriptionNudge(fixture, '2026-08-25')).toBe(true);
+    expect(needsSubscriptionNudge(fixture, '2026-08-31')).toBe(true);
+  });
+
+  it('goes away once the month has a subscription entry', () => {
+    expect(needsSubscriptionNudge([...fixture, sub], '2026-08-27')).toBe(false);
+  });
+
+  it('returns the following month, which is empty again', () => {
+    expect(needsSubscriptionNudge([...fixture, sub], '2026-09-25')).toBe(true);
   });
 });
