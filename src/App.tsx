@@ -3,7 +3,7 @@ import AppShell from '@/components/AppShell';
 import TabBar, { type Tab } from '@/components/TabBar';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import Home from '@/screens/Home';
-import DataScreen from '@/screens/DataScreen';
+import SettingsScreen from '@/screens/SettingsScreen';
 import SignIn from '@/screens/SignIn';
 
 // Recharts is most of the bundle. The daily-entry flow is the one that has to be
@@ -35,13 +35,13 @@ function Routed() {
 
   return (
     <>
-      {tab === 'home' && <Home onGoToData={() => setTab('data')} />}
+      {tab === 'home' && <Home />}
       {tab === 'analytics' && (
         <Suspense fallback={<div className="flex-1" />}>
           <Analytics />
         </Suspense>
       )}
-      {tab === 'data' && <DataScreen />}
+      {tab === 'settings' && <SettingsScreen />}
       <TabBar active={tab} onChange={setTab} />
     </>
   );

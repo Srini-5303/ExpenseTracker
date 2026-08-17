@@ -1,4 +1,4 @@
-export type Tab = 'home' | 'analytics' | 'data';
+export type Tab = 'home' | 'analytics' | 'settings';
 
 /** Bottom-anchored, safe-area padded — without that it sits under the home indicator. */
 export default function TabBar({
@@ -11,7 +11,7 @@ export default function TabBar({
   const tabs: readonly { id: Tab; label: string }[] = [
     { id: 'home', label: 'Home' },
     { id: 'analytics', label: 'Analytics' },
-    { id: 'data', label: 'Data' },
+    { id: 'settings', label: 'Settings' },
   ];
 
   return (

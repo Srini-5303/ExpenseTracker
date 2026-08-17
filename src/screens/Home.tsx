@@ -2,9 +2,7 @@ import { useState } from 'react';
 import type { Category, Transaction, TxType } from '@/types';
 import { useBalances } from '@/hooks/useDerived';
 import { deleteTransaction, restoreTransaction } from '@/hooks/useTransactions';
-import { useSettings } from '@/hooks/useSettings';
 import { useDueSubscriptions } from '@/hooks/useSubscriptions';
-import { exportIsStale } from '@/lib/backup';
 import BalanceHeader from '@/components/BalanceHeader';
 import SpendSummary from '@/components/SpendSummary';
 import SubscriptionNudge from '@/components/SubscriptionNudge';
@@ -22,9 +20,8 @@ type SheetState =
   | { kind: 'other'; type: OtherType; existing?: Transaction }
   | null;
 
-export default function Home({ onGoToData }: { onGoToData: () => void }) {
+export default function Home() {
   const b = useBalances();
-  const settings = useSettings();
   const due = useDueSubscriptions();
   const [sheet, setSheet] = useState<SheetState>(null);
   const [deleted, setDeleted] = useState<Transaction | null>(null);
@@ -59,19 +56,6 @@ export default function Home({ onGoToData }: { onGoToData: () => void }) {
           <SubscriptionNudge
             onLog={() => setSheet({ kind: 'expense', initialCategory: 'subscriptions' })}
           />
-        )}
-        {/* Local-only data is one cleared cache away from gone, so the reminder
-            lives on the screen the user actually opens. */}
-        {b.hasTransactions && exportIsStale(settings?.lastExportAt) && (
-          <button
-            onClick={onGoToData}
-            className="mt-3 flex w-full items-center gap-3 rounded-md border border-line px-4 py-3 text-left active:bg-surface"
-          >
-            <span className="flex-1 text-sm text-dim">
-              {settings?.lastExportAt ? 'Last export was over a month ago.' : 'Never exported.'}
-            </span>
-            <span className="text-sm">Export</span>
-          </button>
         )}
         <TransactionList onSelect={select} />
       </div>

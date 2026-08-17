@@ -60,5 +60,4 @@ export interface Subscription {
 /** Stored as fields on the account's own document. */
 export interface Settings {
   creditLimitCents?: number; // optional, enables the available-credit readout
-  lastExportAt?: number;
 }

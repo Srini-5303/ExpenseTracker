@@ -179,11 +179,9 @@ Every one of these uses `ownShareCents`, and every one excludes income, reimburs
 
 ### Data safety
 
-The account survives a lost phone. It does not survive a mistaken delete, a bug that writes garbage, or wanting the data somewhere that is not Google's — sync faithfully replicates damage to every device. So export stays:
+Firestore is the only copy. Export and import were removed deliberately — do not reintroduce them without being asked.
 
-- Export all data to a JSON file
-- Import from that file, with a merge-or-replace choice
-- A visible reminder to export if the last export was over a month ago
+Know what that means: the Spark plan has no point-in-time recovery, so a mistaken delete syncs to every device in under a second and Google has no copy to restore from. The undo toast is the only safety net there is. Treat any change that deletes or overwrites transactions in bulk as irreversible.
 
 ## Design direction
 
@@ -228,7 +226,7 @@ The app is developed and reviewed on a laptop but lives on an iPhone 16 Pro Max.
 
 - Chrome DevTools has no iPhone 16 Pro Max preset. Add a custom device at 440 x 956 with a device pixel ratio of 3.
 - Service workers require HTTPS, and a LAN address like `192.168.x.x` does not qualify even though `localhost` does. Testing install behavior over the local network therefore needs a tunnel such as `cloudflared` or `ngrok`, or a deploy to a hosting preview URL. Do not spend time debugging a service worker that is failing only because the origin is insecure.
-- **Sign-in state does not transfer between Safari and the installed app.** They are separate origins, so the installed app starts signed out. The data is all still there — sign in again and it syncs down. Before accounts existed this was genuine data loss; now it is one login.
+- **Sign-in state does not transfer between Safari and the installed app.** They are separate origins, so the installed app starts signed out. The data is all still there — sign in again and it syncs down.
 - After the app is installed, a new deploy is picked up by the service worker but not shown until the app is fully closed and reopened. When a change appears to have no effect on the phone, check this before assuming the deploy failed.
 
 ## Conventions
