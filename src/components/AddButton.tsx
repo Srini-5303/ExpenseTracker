@@ -5,6 +5,7 @@ const OTHER: readonly [Exclude<TxType, 'expense'>, string][] = [
   ['income', 'Paycheck'],
   ['reimbursement', 'Money back'],
   ['card_payment', 'Card payment'],
+  ['payback', 'Pay back'],
   ['savings_deposit', 'To savings'],
   ['savings_withdrawal', 'From savings'],
 ];

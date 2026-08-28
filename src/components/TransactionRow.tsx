@@ -1,13 +1,14 @@
 import type { Transaction, TxType } from '@/types';
 import { formatCents } from '@/lib/money';
 import { formatShortDate } from '@/lib/dates';
-import { CATEGORY_COLOR, CATEGORY_LABEL } from '@/lib/categories';
+import { CATEGORY_COLOR, CATEGORY_LABEL, METHOD_LABEL } from '@/lib/categories';
 
 const TYPE_LABEL: Record<TxType, string> = {
   expense: 'Expense', // unreachable in practice: every expense carries a category
   income: 'Paycheck',
   reimbursement: 'Money back',
   card_payment: 'Card payment',
+  payback: 'Pay back',
   savings_deposit: 'To savings',
   savings_withdrawal: 'From savings',
 };
@@ -48,7 +49,7 @@ export default function TransactionRow({
             {formatShortDate(tx.date)}
             {tx.category && tx.note ? ` · ${CATEGORY_LABEL[tx.category]}` : ''}
             {tx.trip ? ` · ${tx.trip}` : ''}
-            {tx.method ? ` · ${tx.method}` : ''}
+            {tx.method ? ` · ${METHOD_LABEL[tx.method].toLowerCase()}` : ''}
           </span>
         </span>
         <span className="shrink-0 text-right">

@@ -22,6 +22,9 @@ type OtherType = Exclude<TxType, 'expense'>;
  *  card_payment  — moves money from cash to the card balance. It is not an
  *                  expense and must never reach analytics: the purchases behind
  *                  it were already recorded when they happened.
+ *  payback       — the mirror of a reimbursement: cash goes out to someone who
+ *                  covered you. The expense itself was already logged as "paid
+ *                  for me", so this is only the cash moving, never spending.
  *  savings       — a transfer in either direction. Also not spending: a month of
  *                  diligent saving must not read as a month of overspending.
  *
@@ -42,6 +45,11 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
     title: 'Card payment',
     label: 'Amount paid',
     help: 'Pays down the card from cash. Never counts as spending — those purchases were logged when you made them.',
+  },
+  payback: {
+    title: 'Pay back',
+    label: 'Amount paid',
+    help: 'You paid someone back. Comes out of cash, and never counts as spending — the expense was logged when they covered you.',
   },
   savings_deposit: {
     title: 'To savings',

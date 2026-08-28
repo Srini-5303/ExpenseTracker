@@ -9,9 +9,10 @@ import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
  *   Balances and card totals use `amountCents`.
  *   Every chart, category total, and period total uses `ownShareCents`.
  *
- * Analytics see EXPENSES ONLY. Income, reimbursements, and card payments are
- * excluded without exception — a card payment counted as spending double-counts
- * purchases that were already recorded when they happened.
+ * Analytics see EXPENSES ONLY. Income, reimbursements, card payments, paybacks,
+ * and savings transfers are excluded without exception — a card payment or a
+ * payback counted as spending double-counts purchases that were already
+ * recorded when they happened.
  */
 
 const isExpense = (t: Transaction) => t.type === 'expense';
@@ -28,9 +29,11 @@ export function cashOnHand(txs: readonly Transaction[]): number {
         case 'income':
         case 'reimbursement':
           return t.amountCents;
+        // Credit is paid later; covered was never your money to begin with.
         case 'expense':
-          return t.method === 'credit' ? 0 : -t.amountCents;
+          return t.method === 'credit' || t.method === 'covered' ? 0 : -t.amountCents;
         case 'card_payment':
+        case 'payback':
         case 'savings_deposit':
           return -t.amountCents;
         case 'savings_withdrawal':

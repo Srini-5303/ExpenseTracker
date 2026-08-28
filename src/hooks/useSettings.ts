@@ -44,6 +44,10 @@ export function lastMethod(): PayMethod {
   return stored === 'credit' || stored === 'debit' || stored === 'cash' ? stored : 'credit';
 }
 
+/**
+ * "Paid for me" is never remembered. It is the rare case, and defaulting the
+ * next expense to it would silently stop deducting real money from cash.
+ */
 export function rememberMethod(method: PayMethod): void {
-  localStorage.setItem(LAST_METHOD_KEY, method);
+  if (method !== 'covered') localStorage.setItem(LAST_METHOD_KEY, method);
 }

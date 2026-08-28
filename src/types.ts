@@ -3,10 +3,17 @@ export type TxType =
   | 'income'
   | 'reimbursement'
   | 'card_payment'
+  | 'payback'
   | 'savings_deposit'
   | 'savings_withdrawal';
 
-export type PayMethod = 'credit' | 'debit' | 'cash';
+/**
+ * `covered` means someone else paid — the spending is still yours and still
+ * counts in analytics, but no money left your cash and nothing hit your card.
+ * Deliberately not a debt: like a reimbursement, nothing is owed, aged, or
+ * matched to a later payback.
+ */
+export type PayMethod = 'credit' | 'debit' | 'cash' | 'covered';
 
 export type Category =
   | 'groceries'

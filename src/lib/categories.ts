@@ -1,4 +1,4 @@
-import type { Category } from '@/types';
+import type { Category, PayMethod } from '@/types';
 
 /**
  * Ordered by how often a category is actually tapped, not alphabetically.
@@ -30,6 +30,14 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   utilities: 'Utilities',
   subscriptions: 'Subscriptions',
   other: 'Other',
+};
+
+/** One wording for a payment method, shared by the toggle, the rows and the chart. */
+export const METHOD_LABEL: Record<PayMethod, string> = {
+  credit: 'Credit',
+  debit: 'Debit',
+  cash: 'Cash',
+  covered: 'Paid for me',
 };
 
 /**

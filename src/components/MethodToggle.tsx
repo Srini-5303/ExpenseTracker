@@ -1,14 +1,15 @@
 import type { PayMethod } from '@/types';
+import { METHOD_LABEL } from '@/lib/categories';
 
 /**
  * Defaults to whichever was used last (see hooks/useSettings). Expenses offer
- * credit and debit; a card payment offers debit and cash, since that is where
- * the money comes from.
+ * credit, debit, and "paid for me"; a card payment offers debit and cash, since
+ * that is where the money comes from.
  */
 export default function MethodToggle({
   value,
   onChange,
-  options = ['credit', 'debit'],
+  options = ['credit', 'debit', 'covered'],
 }: {
   value: PayMethod;
   onChange: (method: PayMethod) => void;
@@ -22,11 +23,11 @@ export default function MethodToggle({
           type="button"
           onClick={() => onChange(m)}
           aria-pressed={value === m}
-          className={`flex-1 rounded-full py-2.5 text-sm capitalize active:scale-[0.98] ${
+          className={`flex-1 whitespace-nowrap rounded-full py-2.5 text-sm active:scale-[0.98] ${
             value === m ? 'bg-ink font-medium text-bg' : 'text-dim'
           }`}
         >
-          {m}
+          {METHOD_LABEL[m]}
         </button>
       ))}
     </div>

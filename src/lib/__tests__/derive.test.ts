@@ -163,6 +163,39 @@ describe('breakdowns', () => {
   });
 });
 
+describe('covered expenses and paybacks', () => {
+  // A $60 dinner a friend paid for, split two ways, then $30 handed back later.
+  const covered = tx({
+    type: 'expense',
+    amountCents: 6000,
+    ownShareCents: 3000,
+    category: 'restaurant',
+    method: 'covered',
+  });
+  const back = tx({ type: 'payback', amountCents: 3000, date: '2026-08-20' });
+
+  it('is spending, but no money of yours moved', () => {
+    expect(spend([covered], ...MONTH)).toBe(3000);
+    expect(categoryTotals([covered], ...MONTH).get('restaurant')).toBe(3000);
+    expect(cashOnHand([covered])).toBe(0);
+    expect(cardBalance([covered])).toBe(0);
+  });
+
+  it('pays back out of cash without counting twice', () => {
+    expect(cashOnHand([covered, back])).toBe(-3000);
+    expect(spend([covered, back], ...MONTH)).toBe(3000); // still just the dinner
+    expect(cardBalance([covered, back])).toBe(0);
+  });
+
+  it('leaves the method bar summing to the month total', () => {
+    const totals = methodTotals([...fixture, covered], ...MONTH);
+    expect(totals.get('covered')).toBe(3000);
+    expect([...totals.values()].reduce((a, b) => a + b, 0)).toBe(
+      spend([...fixture, covered], ...MONTH),
+    );
+  });
+});
+
 describe('savings', () => {
   const saving: Transaction[] = [
     tx({ type: 'income', amountCents: 300000, date: '2026-06-01' }),
