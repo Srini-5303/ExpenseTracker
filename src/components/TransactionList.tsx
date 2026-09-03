@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Transaction } from '@/types';
 import { useTransactions } from '@/hooks/useTransactions';
-import { currentMonthKey, formatMonth, monthKey } from '@/lib/dates';
+import { currentMonthKey, formatMonth, monthKey, shiftMonth } from '@/lib/dates';
 import TransactionRow from '@/components/TransactionRow';
 
 const PREVIEW = 5;
@@ -15,14 +15,17 @@ export default function TransactionList({ onSelect }: { onSelect: (tx: Transacti
   const txs = useTransactions();
   const [expanded, setExpanded] = useState(false);
 
-  const month = currentMonthKey();
-  const thisMonth = txs.filter((tx) => monthKey(tx.date) === month);
-  const shown = expanded ? thisMonth : txs.slice(0, PREVIEW);
-  const hasMore = thisMonth.length > shown.length;
+  // Two months, not one: early in a month there is barely anything to expand
+  // into, and a trip logged in the last few days of the previous month would
+  // fall out of the preview with no way to reach it.
+  const since = shiftMonth(currentMonthKey(), -1);
+  const recent = txs.filter((tx) => monthKey(tx.date) >= since);
+  const shown = expanded ? recent : txs.slice(0, PREVIEW);
+  const hasMore = recent.length > shown.length;
 
   return (
     <section className="mt-7">
-      <h2 className="eyebrow">{expanded ? formatMonth(month) : 'Recent'}</h2>
+      <h2 className="eyebrow">{expanded ? `Since ${formatMonth(since)}` : 'Recent'}</h2>
 
       {txs.length === 0 ? (
         <p className="mt-3 text-sm leading-relaxed text-dim">
@@ -37,7 +40,7 @@ export default function TransactionList({ onSelect }: { onSelect: (tx: Transacti
       )}
 
       {expanded && shown.length === 0 && (
-        <p className="mt-3 text-sm text-dim">Nothing logged in {formatMonth(month)} yet.</p>
+        <p className="mt-3 text-sm text-dim">Nothing logged since {formatMonth(since)}.</p>
       )}
 
       {(hasMore || expanded) && (
