@@ -36,6 +36,8 @@ export default function CategoryDonut({
   const ring = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Category | null>(null);
   const [open, setOpen] = useState<Category | null>(null);
+  const tapFrom = useRef<{ x: number; y: number } | null>(null);
+  const toggle = (c: Category) => setOpen((o) => (o === c ? null : c));
 
   const { slices, total, charges } = useMemo(() => {
     const start = `${month}-01`;
@@ -169,12 +171,26 @@ export default function CategoryDonut({
           // only adds the charges underneath them.
           <li key={s.category}>
             <button
-              onClick={() => setOpen(expanded === s.category ? null : s.category)}
+              onClick={() => toggle(s.category)}
               aria-expanded={expanded === s.category}
               onMouseEnter={() => setSelected(s.category)}
               onMouseLeave={() => setSelected(null)}
-              onTouchStart={() => setSelected(s.category)}
-              onTouchEnd={() => setSelected(null)}
+              onTouchStart={(e) => {
+                tapFrom.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY };
+                setSelected(s.category);
+              }}
+              // iOS spends the first tap simulating hover on anything that
+              // reacts to it, so waiting for the click event would cost a
+              // second tap. Preventing the default here also stops the
+              // synthetic click, so one tap toggles exactly once.
+              onTouchEnd={(e) => {
+                setSelected(null);
+                const from = tapFrom.current;
+                const t = e.changedTouches[0]!;
+                if (!from || Math.hypot(t.clientX - from.x, t.clientY - from.y) > 10) return;
+                e.preventDefault();
+                toggle(s.category);
+              }}
               onTouchCancel={() => setSelected(null)}
               className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-sm px-2 py-2.5 text-left text-sm ${
                 active?.category === s.category ? 'bg-surface' : active ? 'text-dim' : ''
