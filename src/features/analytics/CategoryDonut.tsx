@@ -5,6 +5,7 @@ import { categoryTotals, expensesIn } from '@/lib/derive';
 import { formatCents } from '@/lib/money';
 import { CATEGORY_COLOR, CATEGORY_LABEL, CATEGORY_ORDER } from '@/lib/categories';
 import { monthEnd } from '@/lib/dates';
+import ChargeList from './ChargeList';
 
 const INNER_RATIO = 0.62;
 
@@ -22,7 +23,8 @@ const INNER_RATIO = 0.62;
  * live instead of only registering where it landed.
  *
  * The row list is not a legend: it is the readable version of the same data, so
- * the numbers stay available without touching anything.
+ * the numbers stay available without touching anything. Tapping a row opens the
+ * charges behind it, the same drill-down a trip total gets.
  */
 export default function CategoryDonut({
   txs,
@@ -33,15 +35,23 @@ export default function CategoryDonut({
 }) {
   const ring = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Category | null>(null);
+  const [open, setOpen] = useState<Category | null>(null);
 
-  const { slices, total } = useMemo(() => {
+  const { slices, total, charges } = useMemo(() => {
     const start = `${month}-01`;
     const end = monthEnd(month);
     const totals = categoryTotals(txs, start, end);
     const counts = new Map<Category, number>();
+    const charges = new Map<Category, Transaction[]>();
     for (const t of expensesIn(txs, start, end)) {
-      if (t.category) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+      if (!t.category) continue;
+      counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+      // Newest first, matching the recent list on the home screen.
+      const found = charges.get(t.category);
+      if (found) found.push(t);
+      else charges.set(t.category, [t]);
     }
+    for (const list of charges.values()) list.sort((a, b) => b.date.localeCompare(a.date));
     const ordered = CATEGORY_ORDER.filter((c) => (totals.get(c) ?? 0) > 0)
       .map((c) => ({ category: c, value: totals.get(c) ?? 0, count: counts.get(c) ?? 0 }))
       .sort((a, b) => b.value - a.value);
@@ -55,11 +65,12 @@ export default function CategoryDonut({
       sweep += (s.value / sum) * 360;
       return { ...s, from, to: sweep };
     });
-    return { slices, total: sum };
+    return { slices, total: sum, charges };
   }, [txs, month]);
 
   // A category can vanish when the month changes; never keep a stale selection.
   const active = slices.find((s) => s.category === selected) ?? null;
+  const expanded = slices.some((s) => s.category === open) ? open : null;
 
   function hitTest(clientX: number, clientY: number): Category | null {
     const rect = ring.current?.getBoundingClientRect();
@@ -154,28 +165,37 @@ export default function CategoryDonut({
         {slices.map((s) => (
           // Hovering or holding a row drives the same readout as the ring, so
           // either one answers the question. Nothing here is hidden behind the
-          // interaction — the row already shows its own numbers.
-          <li
-            key={s.category}
-            onMouseEnter={() => setSelected(s.category)}
-            onMouseLeave={() => setSelected(null)}
-            onTouchStart={() => setSelected(s.category)}
-            onTouchEnd={() => setSelected(null)}
-            onTouchCancel={() => setSelected(null)}
-            className={`-mx-2 flex items-center gap-3 rounded-sm px-2 py-2.5 text-sm ${
-              active?.category === s.category ? 'bg-surface' : active ? 'text-dim' : ''
-            }`}
-          >
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{
-                backgroundColor: CATEGORY_COLOR[s.category],
-                opacity: active && active.category !== s.category ? 0.35 : 1,
-              }}
-            />
-            <span className="flex-1">{CATEGORY_LABEL[s.category]}</span>
-            <span className="num text-dim">{Math.round((s.value / total) * 100)}%</span>
-            <span className="num w-20 text-right">{formatCents(s.value)}</span>
+          // interaction — the row already shows its own numbers, and tapping
+          // only adds the charges underneath them.
+          <li key={s.category}>
+            <button
+              onClick={() => setOpen(expanded === s.category ? null : s.category)}
+              aria-expanded={expanded === s.category}
+              onMouseEnter={() => setSelected(s.category)}
+              onMouseLeave={() => setSelected(null)}
+              onTouchStart={() => setSelected(s.category)}
+              onTouchEnd={() => setSelected(null)}
+              onTouchCancel={() => setSelected(null)}
+              className={`-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-sm px-2 py-2.5 text-left text-sm ${
+                active?.category === s.category ? 'bg-surface' : active ? 'text-dim' : ''
+              }`}
+            >
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: CATEGORY_COLOR[s.category],
+                  opacity: active && active.category !== s.category ? 0.35 : 1,
+                }}
+              />
+              <span className="flex-1">{CATEGORY_LABEL[s.category]}</span>
+              <span className="num text-dim">{Math.round((s.value / total) * 100)}%</span>
+              <span className="num w-20 text-right">{formatCents(s.value)}</span>
+              <span className="shrink-0 text-dim">{expanded === s.category ? '⌃' : '⌄'}</span>
+            </button>
+
+            {expanded === s.category && (
+              <ChargeList charges={charges.get(s.category) ?? []} showCategory={false} />
+            )}
           </li>
         ))}
       </ul>

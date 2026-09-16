@@ -3,7 +3,7 @@ import type { Transaction } from '@/types';
 import { tripTotals } from '@/lib/derive';
 import { formatCents } from '@/lib/money';
 import { formatShortDate } from '@/lib/dates';
-import { CATEGORY_COLOR, CATEGORY_LABEL } from '@/lib/categories';
+import ChargeList from './ChargeList';
 
 /**
  * What each trip cost, own share only.
@@ -45,52 +45,17 @@ export default function TripTotals({ txs }: { txs: readonly Transaction[] }) {
                 <span className="shrink-0 text-dim">{expanded ? '⌃' : '⌄'}</span>
               </button>
 
-              {expanded && <Charges txs={txs} trip={t.trip} />}
+              {expanded && (
+                <ChargeList
+                  charges={txs
+                    .filter((x) => x.type === 'expense' && x.trip === t.trip)
+                    .sort((a, b) => a.date.localeCompare(b.date))}
+                />
+              )}
             </li>
           );
         })}
       </ul>
     </section>
-  );
-}
-
-/**
- * Amounts are the own share, matching the trip total above and every other
- * figure on this screen. A split charge also shows what actually hit the card,
- * so the two numbers are never confused.
- */
-function Charges({ txs, trip }: { txs: readonly Transaction[]; trip: string }) {
-  const charges = txs
-    .filter((t) => t.type === 'expense' && t.trip === trip)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  return (
-    <ul className="mb-3 ml-3 border-l border-line pl-3">
-      {charges.map((tx) => (
-        <li key={tx.id} className="flex items-center gap-2.5 py-2 text-sm">
-          <span
-            className="size-1.5 shrink-0 rounded-full"
-            style={{
-              backgroundColor: tx.category ? CATEGORY_COLOR[tx.category] : 'var(--color-line)',
-            }}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate">
-              {tx.note || (tx.category ? CATEGORY_LABEL[tx.category] : 'Expense')}
-            </span>
-            <span className="block text-xs text-dim">
-              {formatShortDate(tx.date)}
-              {tx.category && tx.note ? ` · ${CATEGORY_LABEL[tx.category]}` : ''}
-            </span>
-          </span>
-          <span className="shrink-0 text-right">
-            <span className="num block">{formatCents(tx.ownShareCents)}</span>
-            {tx.ownShareCents !== tx.amountCents && (
-              <span className="num block text-xs text-dim">of {formatCents(tx.amountCents)}</span>
-            )}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }
