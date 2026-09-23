@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { PayMethod, Transaction, TxType } from '@/types';
+import type { CardId, PayMethod, Transaction, TxType } from '@/types';
 import { addTransaction, replaceTransaction } from '@/hooks/useTransactions';
+import { CARD_IDS } from '@/lib/categories';
 import { parseAmount } from '@/lib/money';
 import { today } from '@/lib/dates';
 import Sheet from '@/components/Sheet';
@@ -19,7 +20,7 @@ type OtherType = Exclude<TxType, 'expense'>;
  *                  balance, because the bank still wants the full charge until
  *                  the bill is paid. Nothing is matched to an original
  *                  transaction and nothing is ever marked settled.
- *  card_payment  — moves money from cash to the card balance. It is not an
+ *  card_payment  — moves money from cash to ONE card's balance. It is not an
  *                  expense and must never reach analytics: the purchases behind
  *                  it were already recorded when they happened.
  *  payback       — the mirror of a reimbursement: cash goes out to someone who
@@ -44,7 +45,7 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
   card_payment: {
     title: 'Card payment',
     label: 'Amount paid',
-    help: 'Pays down the card from cash. Never counts as spending — those purchases were logged when you made them.',
+    help: 'Pays down one card from cash. Never counts as spending — those purchases were logged when you made them.',
   },
   payback: {
     title: 'Pay back',
@@ -63,6 +64,9 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
   },
 };
 
+/** Where a card payment's money comes from — never a card, or nothing would move. */
+const SOURCES: readonly PayMethod[] = ['debit', 'cash'];
+
 export default function OtherEntrySheet({
   type,
   existing,
@@ -79,6 +83,7 @@ export default function OtherEntrySheet({
     existing ? (existing.amountCents / 100).toFixed(2) : '',
   );
   const [method, setMethod] = useState<PayMethod>(existing?.method ?? 'debit');
+  const [card, setCard] = useState<CardId>(existing?.card ?? 'chase');
   const [note, setNote] = useState(existing?.note ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
 
@@ -94,7 +99,7 @@ export default function OtherEntrySheet({
       type,
       amountCents,
       ownShareCents: amountCents,
-      ...(type === 'card_payment' ? { method } : {}),
+      ...(type === 'card_payment' ? { method, card } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
     };
     if (existing) await replaceTransaction(existing, fields);
@@ -119,9 +124,14 @@ export default function OtherEntrySheet({
 
       <div className="space-y-6 pb-6">
         <p className="px-5 text-sm leading-relaxed text-dim">{copy.help}</p>
-        {/* A card payment comes out of debit or cash — that is where the money is. */}
+        {/* Which card is paid down, and where the money comes from. Both are
+            needed: the payment has to land on one card's balance, and it has to
+            leave cash — and those are never the same choice. */}
         {type === 'card_payment' && (
-          <MethodToggle value={method} onChange={setMethod} options={['debit', 'cash']} />
+          <>
+            <MethodToggle label="Card paid" value={card} onChange={setCard} options={CARD_IDS} />
+            <MethodToggle label="Paid from" value={method} onChange={setMethod} options={SOURCES} />
+          </>
         )}
         <NoteDateRow note={note} date={date} onNote={setNote} onDate={setDate} />
       </div>

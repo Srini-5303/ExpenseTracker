@@ -56,7 +56,7 @@ Debit and cash leave immediately. Credit does not touch cash now, it adds to a c
 So there are two running figures:
 
 - **Cash on hand**, reduced by debit and cash spending
-- **Card balance**, increased by the full `amountCents` of credit spending
+- **A card balance per card**, each increased by the full `amountCents` of that card's spending. Two cards means two independent balances and two independent limits; a payment reduces exactly the one card it names.
 
 Card balance is the credit-limit number, so it must always use the full charge. A split dinner put on the card counts against the limit at its full value even though only a third of it was the user's expense.
 
@@ -67,7 +67,9 @@ Paying the card bill is its own transaction type. It moves money from cash to th
 ```ts
 type TxType = 'expense' | 'income' | 'reimbursement' | 'card_payment';
 
-type PayMethod = 'credit' | 'debit' | 'cash';
+type CardId = 'chase' | 'amex';   // two credit cards, each with its own balance and limit
+
+type PayMethod = CardId | 'debit' | 'cash' | 'covered';
 
 type Category =
   | 'groceries'
@@ -87,12 +89,13 @@ interface Transaction {
   ownShareCents: number;   // equals amountCents when nothing was split
   category?: Category;     // required for expenses, absent for all other types
   method?: PayMethod;      // required for expenses and card payments
+  card?: CardId;           // which card a card_payment pays down
   note?: string;           // 'Costco run', 'Uber to airport'
   createdAt: number;
 }
 
 interface Settings {
-  creditLimitCents?: number;  // optional, enables the available-credit readout
+  cardLimitsCents?: Partial<Record<CardId, number>>;  // per card, each optional
 }
 ```
 
@@ -103,7 +106,7 @@ Notes on the model:
 - Splitting captures only a headcount or an exact own-share amount. No names, no `Person` table.
 - Even splits divide across the total headcount including the user. Put any remainder cents on the user's own share so the total reconciles.
 - Income and reimbursements have no category and no method, and their `ownShareCents` equals `amountCents`.
-- `card_payment` has a method of `debit` or `cash`, since that is where the money comes from.
+- `card_payment` has a method of `debit` or `cash`, since that is where the money comes from, and a `card` naming which balance it pays down. Those are two different fields and never the same choice.
 - Dates are local calendar date strings. Timezone conversion on a date-only field is a recurring source of off-by-one-day bugs.
 
 ### On reimbursements
@@ -118,14 +121,16 @@ This is deliberately not a settlement feature. Nothing is matched to an original
 
 ```
 cashOnHand   = sum(income)
-             - sum(expense.amountCents where method != 'credit')
+             - sum(expense.amountCents where method is not a card and not 'covered')
              + sum(reimbursement.amountCents)
              - sum(card_payment.amountCents)
 
-cardBalance  = sum(expense.amountCents where method == 'credit')
-             - sum(card_payment.amountCents)
+cardBalance(c) = sum(expense.amountCents where method == c)
+               - sum(card_payment.amountCents where card == c)
 
-availableCredit = creditLimitCents - cardBalance      // only if a limit is set
+cardBalance    = cardBalance('chase') + cardBalance('amex')
+
+availableCredit(c) = cardLimitsCents[c] - cardBalance(c)   // only if that card has a limit
 
 netPosition  = cashOnHand - cardBalance
 
@@ -142,7 +147,7 @@ The primary flow, and it should take under fifteen seconds. Adding an expense as
 
 1. Amount, meaning the full amount charged (numeric keypad opens immediately, autofocused)
 2. Category (fixed chips, single tap, no dropdown)
-3. Credit or debit (two-option toggle, defaults to whichever was used last)
+3. How it was paid — Chase, Amex, debit, or paid for me (four options in two rows of two, defaults to whichever was used last)
 4. Was this just for you, or split? Default to just yourself. Splitting asks how many people total, or lets an exact own-share be typed.
 5. Note (optional, free text)
 6. Date (defaults to today)
@@ -162,7 +167,7 @@ Paychecks, reimbursements, and card payments are separate, less prominent action
 ### Home screen
 
 - Cash on hand, large
-- Card balance, secondary, with available credit beside it when a limit is set
+- One balance row per card, secondary, each with its available credit beneath when that card has a limit. Never a single combined card total: one number would hide which limit is close to being hit.
 - Spent today, this week, this month
 - Recent transactions, tappable to edit or delete
 
@@ -173,7 +178,7 @@ Show split transactions in the list with both numbers, something like `$150.00` 
 - Category breakdown for a selected month. A pie or donut works here since the question is proportional: what share of my spending is rent vs. food.
 - Spending over time. A bar chart by day within a month, or by month across a year.
 - Category comparison, this month vs. last month. A grouped horizontal bar chart per category reads better on a narrow phone than side-by-side pies, and makes the delta directly legible. Show the percent change next to each category.
-- Credit vs. debit split for the month. A single stacked bar is enough. This does not need its own screen.
+- How you paid, for the month: each card, debit, cash, and covered. A single stacked bar is enough. This does not need its own screen.
 
 Every one of these uses `ownShareCents`, and every one excludes income, reimbursements, and card payments.
 

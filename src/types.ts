@@ -8,12 +8,18 @@ export type TxType =
   | 'savings_withdrawal';
 
 /**
+ * A credit card, identified rather than lumped together as "credit": each one
+ * carries its own balance and its own limit, so a charge has to say which.
+ */
+export type CardId = 'chase' | 'amex';
+
+/**
  * `covered` means someone else paid — the spending is still yours and still
  * counts in analytics, but no money left your cash and nothing hit your card.
  * Deliberately not a debt: like a reimbursement, nothing is owed, aged, or
  * matched to a later payback.
  */
-export type PayMethod = 'credit' | 'debit' | 'cash' | 'covered';
+export type PayMethod = CardId | 'debit' | 'cash' | 'covered';
 
 export type Category =
   | 'groceries'
@@ -35,6 +41,12 @@ export interface Transaction {
   ownShareCents: number; // equals amountCents when nothing was split
   category?: Category; // required for expenses, absent for all other types
   method?: PayMethod; // required for expenses and card payments
+  /**
+   * Which card a `card_payment` pays down. Separate from `method`, which on a
+   * card payment says where the money came FROM — the two are never the same
+   * thing, and conflating them would credit the payment to the wrong balance.
+   */
+  card?: CardId;
   note?: string;
   /**
    * A trip name, on any category. Deliberately NOT a second category: a meal on
@@ -66,5 +78,10 @@ export interface Subscription {
 
 /** Stored as fields on the account's own document. */
 export interface Settings {
-  creditLimitCents?: number; // optional, enables the available-credit readout
+  /** Per card, all optional. A limit enables that card's available-credit readout. */
+  cardLimitsCents?: Partial<Record<CardId, number>>;
+  /** Pre-two-card single limit. Read once by the migration, then deleted. */
+  creditLimitCents?: number;
+  /** Absent means the ledger has never been migrated. See hooks/useMigration. */
+  schemaVersion?: number;
 }

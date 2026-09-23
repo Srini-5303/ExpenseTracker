@@ -1,26 +1,27 @@
 import { useState } from 'react';
-import type { Subscription } from '@/types';
-import { useSettings, setCreditLimit } from '@/hooks/useSettings';
+import type { CardId, Subscription } from '@/types';
+import { useSettings, setCardLimit } from '@/hooks/useSettings';
 import { signOutUser, useAuth } from '@/hooks/useAuth';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import SubscriptionSheet from '@/screens/SubscriptionSheet';
-import { CATEGORY_COLOR } from '@/lib/categories';
+import { CARD_IDS, CATEGORY_COLOR, METHOD_LABEL } from '@/lib/categories';
 import { formatCents, parseAmount } from '@/lib/money';
 
-/** The account, recurring subscriptions, and the credit limit. */
+/** The account, recurring subscriptions, and each card's credit limit. */
 export default function SettingsScreen() {
   const settings = useSettings();
   const { user } = useAuth();
   const subs = useSubscriptions();
   const [editing, setEditing] = useState<Subscription | null>(null);
-  const [limitDraft, setLimitDraft] = useState<string | null>(null);
+  // One draft, not one per card: only the focused field is ever being edited.
+  const [draft, setDraft] = useState<{ card: CardId; text: string } | null>(null);
 
-  function commitLimit() {
-    if (limitDraft === null) return;
-    const cents = limitDraft.trim() === '' ? null : parseAmount(limitDraft);
-    if (limitDraft.trim() !== '' && cents === null) return setLimitDraft(null);
-    void setCreditLimit(cents);
-    setLimitDraft(null);
+  function commitLimit(card: CardId) {
+    if (draft?.card !== card) return;
+    const cents = draft.text.trim() === '' ? null : parseAmount(draft.text);
+    if (draft.text.trim() !== '' && cents === null) return setDraft(null);
+    void setCardLimit(card, cents);
+    setDraft(null);
   }
 
   return (
@@ -74,21 +75,33 @@ export default function SettingsScreen() {
       {editing && <SubscriptionSheet sub={editing} onClose={() => setEditing(null)} />}
 
       <section className="mt-8 border-t border-line pt-5">
-        <h2 className="eyebrow">Credit limit</h2>
+        <h2 className="eyebrow">Credit limits</h2>
         <p className="mt-2 text-sm leading-relaxed text-dim">
-          Optional. Setting it shows how much credit is left beside the card balance.
+          Optional, and independent per card. Setting one shows how much credit is left beneath
+          that card's balance.
         </p>
-        <input
-          inputMode="decimal"
-          placeholder="Not set"
-          value={
-            limitDraft ??
-            (settings?.creditLimitCents === undefined ? '' : formatCents(settings.creditLimitCents))
-          }
-          onChange={(e) => setLimitDraft(e.target.value)}
-          onBlur={commitLimit}
-          className="num mt-4 w-full rounded-md bg-surface px-4 py-3 text-xl outline-none focus:ring-1 focus:ring-line"
-        />
+        {CARD_IDS.map((card) => {
+          const limit = settings?.cardLimitsCents?.[card];
+          return (
+            <label key={card} className="mt-4 block">
+              <span className="text-sm text-dim">{METHOD_LABEL[card]}</span>
+              <input
+                inputMode="decimal"
+                placeholder="Not set"
+                value={
+                  draft?.card === card
+                    ? draft.text
+                    : limit === undefined
+                      ? ''
+                      : formatCents(limit)
+                }
+                onChange={(e) => setDraft({ card, text: e.target.value })}
+                onBlur={() => commitLimit(card)}
+                className="num mt-1 w-full rounded-md bg-surface px-4 py-3 text-xl outline-none focus:ring-1 focus:ring-line"
+              />
+            </label>
+          );
+        })}
       </section>
     </div>
   );

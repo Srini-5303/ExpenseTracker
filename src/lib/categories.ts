@@ -1,4 +1,4 @@
-import type { Category, PayMethod } from '@/types';
+import type { CardId, Category, PayMethod } from '@/types';
 
 /**
  * Ordered by how often a category is actually tapped, not alphabetically.
@@ -32,9 +32,19 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   other: 'Other',
 };
 
+/** Both cards, in the order they appear everywhere: toggle, balances, settings. */
+export const CARD_IDS: readonly CardId[] = ['chase', 'amex'];
+
+/** What an expense can be paid with. Four options, which the toggle lays out 2x2. */
+export const EXPENSE_METHODS: readonly PayMethod[] = [...CARD_IDS, 'debit', 'covered'];
+
+/** Every method, from most deferred to least, for the stacked "how you paid" bar. */
+export const METHOD_ORDER: readonly PayMethod[] = [...CARD_IDS, 'debit', 'cash', 'covered'];
+
 /** One wording for a payment method, shared by the toggle, the rows and the chart. */
 export const METHOD_LABEL: Record<PayMethod, string> = {
-  credit: 'Credit',
+  chase: 'Chase',
+  amex: 'Amex',
   debit: 'Debit',
   cash: 'Cash',
   covered: 'Paid for me',

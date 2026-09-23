@@ -43,8 +43,7 @@ export default function Home() {
       <div className="scroll-contain safe-top flex-1 px-6 pb-44">
         <BalanceHeader
           cashOnHand={b.cashOnHand}
-          cardBalance={b.cardBalance}
-          availableCredit={b.availableCredit}
+          cards={b.cards}
           savingsBalance={b.savingsBalance}
         />
         <SpendSummary today={b.spentToday} week={b.spentThisWeek} month={b.spentThisMonth} />

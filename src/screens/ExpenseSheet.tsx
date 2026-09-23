@@ -6,7 +6,7 @@ import { addSubscription } from '@/hooks/useSubscriptions';
 import { useTrips } from '@/hooks/useTrips';
 import { formatCents, parseAmount, splitEven } from '@/lib/money';
 import { fromISODate, today } from '@/lib/dates';
-import { CATEGORY_LABEL } from '@/lib/categories';
+import { CATEGORY_LABEL, EXPENSE_METHODS } from '@/lib/categories';
 import Sheet from '@/components/Sheet';
 import AmountInput from '@/components/AmountInput';
 import CategoryChips from '@/components/CategoryChips';
@@ -19,7 +19,7 @@ import DeleteAction from '@/components/DeleteAction';
 
 /**
  * The primary flow, and it should take under fifteen seconds: amount, category,
- * credit or debit, split, note, date.
+ * how it was paid, split, note, date.
  *
  * Subscriptions swap the split control for the recurring options, since a
  * subscription is never shared with anyone.
@@ -143,7 +143,7 @@ export default function ExpenseSheet({
 
       <div className="mt-2 space-y-6 pb-6">
         <CategoryChips value={category} onChange={setCategory} />
-        <MethodToggle value={method} onChange={setMethod} />
+        <MethodToggle value={method} onChange={setMethod} options={EXPENSE_METHODS} />
         {isSubscription ? (
           <SubscriptionOptions
             kind={subKind}

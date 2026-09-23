@@ -1,5 +1,6 @@
-import type { Category, PayMethod, Transaction } from '@/types';
+import type { CardId, Category, PayMethod, Transaction } from '@/types';
 import { sumCents } from '@/lib/money';
+import { CARD_IDS } from '@/lib/categories';
 import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
 
 /**
@@ -17,6 +18,10 @@ import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
 
 const isExpense = (t: Transaction) => t.type === 'expense';
 
+/** A card charge defers payment; every other method moves money now. */
+export const isCard = (method: PayMethod | undefined): method is CardId =>
+  CARD_IDS.some((card) => card === method);
+
 /** The only entry point analytics may use to select transactions. */
 export function expensesIn(txs: readonly Transaction[], start: string, end: string): Transaction[] {
   return txs.filter((t) => isExpense(t) && inRange(t.date, start, end));
@@ -29,9 +34,9 @@ export function cashOnHand(txs: readonly Transaction[]): number {
         case 'income':
         case 'reimbursement':
           return t.amountCents;
-        // Credit is paid later; covered was never your money to begin with.
+        // A card is paid later; covered was never your money to begin with.
         case 'expense':
-          return t.method === 'credit' || t.method === 'covered' ? 0 : -t.amountCents;
+          return isCard(t.method) || t.method === 'covered' ? 0 : -t.amountCents;
         case 'card_payment':
         case 'payback':
         case 'savings_deposit':
@@ -88,22 +93,32 @@ export function savingsOverTime(txs: readonly Transaction[]): { month: string; c
   return series;
 }
 
-export function cardBalance(txs: readonly Transaction[]): number {
+/**
+ * What a card's issuer is owed — or every card together when no card is named.
+ *
+ * Always the full charge, never the own share: this is the credit-limit number,
+ * so a split dinner counts against the limit at its full value.
+ */
+export function cardBalance(txs: readonly Transaction[], card?: CardId): number {
   return sumCents(
     txs.map((t) => {
-      if (t.type === 'expense' && t.method === 'credit') return t.amountCents;
-      if (t.type === 'card_payment') return -t.amountCents;
+      if (t.type === 'expense' && isCard(t.method) && (card === undefined || t.method === card))
+        return t.amountCents;
+      // A payment reduces the one card it was made against, not the pair.
+      if (t.type === 'card_payment' && (card === undefined || t.card === card))
+        return -t.amountCents;
       return 0;
     }),
   );
 }
 
-/** Undefined until a credit limit is set. */
+/** Undefined until that card has a limit set. Limits are per card, not shared. */
 export function availableCredit(
   txs: readonly Transaction[],
-  creditLimitCents: number | undefined,
+  card: CardId,
+  limitCents: number | undefined,
 ): number | undefined {
-  return creditLimitCents === undefined ? undefined : creditLimitCents - cardBalance(txs);
+  return limitCents === undefined ? undefined : limitCents - cardBalance(txs, card);
 }
 
 /** Everything you have, minus what you owe. Savings counts — it is still yours. */

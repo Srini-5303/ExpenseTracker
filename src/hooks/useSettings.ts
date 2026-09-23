@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { deleteField, onSnapshot, setDoc } from 'firebase/firestore';
 import { requireUid, userDoc, userDocRaw } from '@/lib/db';
 import { useUid } from '@/hooks/useAuth';
-import type { PayMethod, Settings } from '@/types';
+import { EXPENSE_METHODS } from '@/lib/categories';
+import type { CardId, PayMethod, Settings } from '@/types';
 
 /** Settings are fields on the account's own document, not a collection of one. */
 export function useSettings(): Settings | undefined {
@@ -22,26 +23,31 @@ export async function saveSettings(changes: Partial<Settings>): Promise<void> {
 }
 
 /**
- * Null removes the limit entirely rather than storing zero, so the
+ * Limits are per card, since one shared ceiling would say nothing about which
+ * card is nearly full.
+ *
+ * Null removes that card's limit entirely rather than storing zero, so its
  * available-credit readout disappears instead of reading "$0.00 available".
  */
-export async function setCreditLimit(cents: number | null): Promise<void> {
+export async function setCardLimit(card: CardId, cents: number | null): Promise<void> {
   await setDoc(
     userDocRaw(requireUid()),
-    { creditLimitCents: cents === null ? deleteField() : cents },
+    { cardLimitsCents: { [card]: cents === null ? deleteField() : cents } },
     { merge: true },
   );
 }
 
 /**
- * The credit/debit toggle defaults to whatever was used last. Kept on the device
+ * The payment toggle defaults to whatever was used last. Kept on the device
  * rather than in the account: it is a habit of this phone, not data worth syncing.
  */
 const LAST_METHOD_KEY = 'lastMethod';
 
 export function lastMethod(): PayMethod {
   const stored = localStorage.getItem(LAST_METHOD_KEY);
-  return stored === 'credit' || stored === 'debit' || stored === 'cash' ? stored : 'credit';
+  // A legacy 'credit' is not in the list, so it falls through to Chase — the
+  // same card the migration moved those transactions to.
+  return EXPENSE_METHODS.find((m) => m === stored) ?? 'chase';
 }
 
 /**

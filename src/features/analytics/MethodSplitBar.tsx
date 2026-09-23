@@ -3,12 +3,14 @@ import type { PayMethod, Transaction } from '@/types';
 import { methodTotals } from '@/lib/derive';
 import { formatCents } from '@/lib/money';
 import { monthEnd } from '@/lib/dates';
-import { METHOD_LABEL } from '@/lib/categories';
+import { METHOD_LABEL, METHOD_ORDER } from '@/lib/categories';
 
 // Payment method is not a category, so it never borrows a category hue. These
 // are steps of ink, which is also the honest encoding: one whole, split up.
+// Brightest is the most deferred, darkest the money that was never yours.
 const SHADE: Record<PayMethod, string> = {
-  credit: 'var(--color-ink)',
+  chase: 'var(--color-ink)',
+  amex: '#b3c0c3',
   debit: 'var(--color-dim)',
   cash: '#4c585c',
   covered: 'var(--color-line)',
@@ -30,8 +32,7 @@ export default function MethodSplitBar({
 }) {
   const { parts, total } = useMemo(() => {
     const totals = methodTotals(txs, `${month}-01`, monthEnd(month));
-    const parts = (['credit', 'debit', 'cash', 'covered'] as const)
-      .map((method) => ({ method, cents: totals.get(method) ?? 0 }))
+    const parts = METHOD_ORDER.map((method) => ({ method, cents: totals.get(method) ?? 0 }))
       .filter((p) => p.cents > 0);
     return { parts, total: parts.reduce((sum, p) => sum + p.cents, 0) };
   }, [txs, month]);

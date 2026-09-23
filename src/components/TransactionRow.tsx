@@ -49,6 +49,9 @@ export default function TransactionRow({
             {formatShortDate(tx.date)}
             {tx.category && tx.note ? ` · ${CATEGORY_LABEL[tx.category]}` : ''}
             {tx.trip ? ` · ${tx.trip}` : ''}
+            {/* On a card payment, which card was paid — otherwise two payments in
+                a week are indistinguishable in the list. */}
+            {tx.card ? ` · ${METHOD_LABEL[tx.card].toLowerCase()}` : ''}
             {tx.method ? ` · ${METHOD_LABEL[tx.method].toLowerCase()}` : ''}
           </span>
         </span>

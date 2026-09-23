@@ -25,11 +25,11 @@ const tx = (t: Partial<Transaction> & Pick<Transaction, 'type' | 'amountCents'>)
 
 /**
  * One of each type, so every branch of the two rules is exercised at once:
- *   $150 groceries on credit, split three ways ($50 own share)
+ *   $150 groceries on the Chase card, split three ways ($50 own share)
  *   $40 restaurant on debit, not split
  *   $3,000 paycheck
  *   $100 back from a roommate
- *   $200 paid off the card from cash
+ *   $200 paid off Chase from debit
  */
 const fixture: Transaction[] = [
   tx({
@@ -37,12 +37,12 @@ const fixture: Transaction[] = [
     amountCents: 15000,
     ownShareCents: 5000,
     category: 'groceries',
-    method: 'credit',
+    method: 'chase',
   }),
   tx({ type: 'expense', amountCents: 4000, category: 'restaurant', method: 'debit' }),
   tx({ type: 'income', amountCents: 300000 }),
   tx({ type: 'reimbursement', amountCents: 10000 }),
-  tx({ type: 'card_payment', amountCents: 20000, method: 'debit' }),
+  tx({ type: 'card_payment', amountCents: 20000, method: 'debit', card: 'chase' }),
 ];
 
 const MONTH: [string, string] = ['2026-08-01', '2026-08-31'];
@@ -53,12 +53,12 @@ describe('cashOnHand', () => {
     expect(cashOnHand(fixture)).toBe(300000 - 4000 + 10000 - 20000);
   });
 
-  it('ignores credit spending entirely', () => {
+  it('ignores card spending entirely', () => {
     const credit = tx({
       type: 'expense',
       amountCents: 99900,
       category: 'shopping',
-      method: 'credit',
+      method: 'chase',
     });
     expect(cashOnHand([credit])).toBe(0);
   });
@@ -77,7 +77,7 @@ describe('cashOnHand', () => {
 
 describe('cardBalance', () => {
   it('is the credit-limit number, so it uses the full charge on a split', () => {
-    // 150 credit charge - 200 card payment
+    // 150 Chase charge - 200 Chase payment
     expect(cardBalance(fixture)).toBe(15000 - 20000);
   });
 
@@ -87,7 +87,7 @@ describe('cardBalance', () => {
       amountCents: 15000,
       ownShareCents: 5000,
       category: 'groceries',
-      method: 'credit',
+      method: 'chase',
     });
     const back = tx({ type: 'reimbursement', amountCents: 10000 });
     expect(cardBalance([charge, back])).toBe(15000);
@@ -95,16 +95,56 @@ describe('cardBalance', () => {
   });
 
   it('is reduced by a card payment, which also reduces cash', () => {
-    const payment = tx({ type: 'card_payment', amountCents: 20000, method: 'debit' });
+    const payment = tx({
+      type: 'card_payment',
+      amountCents: 20000,
+      method: 'debit',
+      card: 'chase',
+    });
     expect(cardBalance([payment])).toBe(-20000);
     expect(cashOnHand([payment])).toBe(-20000);
   });
 });
 
+describe('two cards', () => {
+  // $100 on Amex, and $60 paid off Amex. Chase must not move a cent.
+  const twoCards: Transaction[] = [
+    ...fixture,
+    tx({ type: 'expense', amountCents: 10000, category: 'shopping', method: 'amex' }),
+    tx({ type: 'card_payment', amountCents: 6000, method: 'debit', card: 'amex' }),
+  ];
+
+  it('keeps each card on its own balance', () => {
+    expect(cardBalance(twoCards, 'chase')).toBe(15000 - 20000);
+    expect(cardBalance(twoCards, 'amex')).toBe(10000 - 6000);
+  });
+
+  it('sums both when no card is named', () => {
+    expect(cardBalance(twoCards)).toBe(
+      cardBalance(twoCards, 'chase') + cardBalance(twoCards, 'amex'),
+    );
+  });
+
+  it('never lets one card pay down the other', () => {
+    // The Amex payment is the only difference, and Chase is unchanged by it.
+    expect(cardBalance(twoCards, 'chase')).toBe(cardBalance(fixture, 'chase'));
+  });
+
+  it('gives each card its own limit', () => {
+    expect(availableCredit(twoCards, 'amex', 500000)).toBe(500000 - 4000);
+    // A Chase limit says nothing about Amex, and vice versa.
+    expect(availableCredit(twoCards, 'chase', undefined)).toBeUndefined();
+  });
+
+  it('is spending either way — a card is not a category', () => {
+    expect(spend(twoCards, ...MONTH)).toBe(spend(fixture, ...MONTH) + 10000);
+  });
+});
+
 describe('availableCredit and netPosition', () => {
   it('stays undefined until a limit is set', () => {
-    expect(availableCredit(fixture, undefined)).toBeUndefined();
-    expect(availableCredit(fixture, 500000)).toBe(500000 - cardBalance(fixture));
+    expect(availableCredit(fixture, 'chase', undefined)).toBeUndefined();
+    expect(availableCredit(fixture, 'chase', 500000)).toBe(500000 - cardBalance(fixture, 'chase'));
   });
 
   it('is cash plus savings minus card debt', () => {
@@ -126,9 +166,9 @@ describe('spend', () => {
   });
 
   it('ignores payment method — a meal is spending on the day it happened', () => {
-    const credit = tx({ type: 'expense', amountCents: 2500, category: 'cab', method: 'credit' });
+    const card = tx({ type: 'expense', amountCents: 2500, category: 'cab', method: 'chase' });
     const cash = tx({ type: 'expense', amountCents: 2500, category: 'cab', method: 'cash' });
-    expect(spend([credit], ...MONTH)).toBe(spend([cash], ...MONTH));
+    expect(spend([card], ...MONTH)).toBe(spend([cash], ...MONTH));
   });
 
   it('respects the period boundary', () => {
@@ -158,7 +198,7 @@ describe('breakdowns', () => {
 
   it('totals methods by own share, excluding the card payment', () => {
     const totals = methodTotals(fixture, ...MONTH);
-    expect(totals.get('credit')).toBe(5000); // own share, not the 15000 charge
+    expect(totals.get('chase')).toBe(5000); // own share, not the 15000 charge
     expect(totals.get('debit')).toBe(4000); // the 20000 card payment is not spending
   });
 });
@@ -240,7 +280,7 @@ describe('tripTotals', () => {
       amountCents: 60000,
       date: '2026-03-02',
       category: 'travel',
-      method: 'credit',
+      method: 'chase',
       trip: 'Lisbon',
     }),
     tx({
@@ -249,7 +289,7 @@ describe('tripTotals', () => {
       ownShareCents: 4000,
       date: '2026-03-05',
       category: 'restaurant',
-      method: 'credit',
+      method: 'chase',
       trip: 'Lisbon',
     }),
     tx({ type: 'expense', amountCents: 3000, category: 'restaurant', method: 'debit' }),
@@ -287,7 +327,7 @@ describe('needsSubscriptionNudge', () => {
     amountCents: 1099,
     date: '2026-08-26',
     category: 'subscriptions',
-    method: 'credit',
+    method: 'chase',
   });
 
   it('stays quiet until the 25th', () => {
