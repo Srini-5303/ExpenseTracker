@@ -9,6 +9,7 @@ const TYPE_LABEL: Record<TxType, string> = {
   reimbursement: 'Money back',
   card_payment: 'Card payment',
   payback: 'Pay back',
+  loan_payment: 'Loan payment',
   to_amex: 'To Amex',
   to_chase: 'To Chase',
 };

@@ -1,7 +1,7 @@
 import type { Transaction } from '@/types';
 import { formatCents } from '@/lib/money';
 import { formatShortDate } from '@/lib/dates';
-import { CATEGORY_COLOR, CATEGORY_LABEL } from '@/lib/categories';
+import { CATEGORY_COLOR, CATEGORY_LABEL, METHOD_LABEL } from '@/lib/categories';
 
 /**
  * The charges behind an analytics total, indented under the row that opened it.
@@ -30,11 +30,18 @@ export default function ChargeList({
           />
           <span className="min-w-0 flex-1">
             <span className="block truncate">
-              {tx.note || (tx.category ? CATEGORY_LABEL[tx.category] : 'Expense')}
+              {tx.note ||
+                (tx.category
+                  ? CATEGORY_LABEL[tx.category]
+                  : tx.method
+                    ? METHOD_LABEL[tx.method]
+                    : 'Expense')}
             </span>
             <span className="block text-xs text-dim">
               {formatShortDate(tx.date)}
               {showCategory && tx.category && tx.note ? ` · ${CATEGORY_LABEL[tx.category]}` : ''}
+              {/* Uncategorised rows (loan payments) name their account instead. */}
+              {!tx.category && tx.method && tx.note ? ` · ${METHOD_LABEL[tx.method]}` : ''}
             </span>
           </span>
           <span className="shrink-0 text-right">

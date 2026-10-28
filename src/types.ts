@@ -4,6 +4,7 @@ export type TxType =
   | 'reimbursement'
   | 'card_payment'
   | 'payback'
+  | 'loan_payment'
   | 'to_amex'
   | 'to_chase';
 

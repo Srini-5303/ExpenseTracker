@@ -6,6 +6,7 @@ import SpendOverTime from '@/features/analytics/SpendOverTime';
 import MonthComparison from '@/features/analytics/MonthComparison';
 import MethodSplitBar from '@/features/analytics/MethodSplitBar';
 import TripTotals from '@/features/analytics/TripTotals';
+import LoanTotal from '@/features/analytics/LoanTotal';
 
 /**
  * Every figure on this screen uses ownShareCents, and every one excludes income,
@@ -43,6 +44,7 @@ export default function Analytics() {
       <MonthComparison txs={txs} month={month} />
       <MethodSplitBar txs={txs} month={month} />
       <TripTotals txs={txs} />
+      <LoanTotal txs={txs} />
     </div>
   );
 }

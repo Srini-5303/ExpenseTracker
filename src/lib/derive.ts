@@ -11,7 +11,7 @@ import { inRange, monthKey } from '@/lib/dates';
  *   Every chart, category total, and period total uses `ownShareCents`.
  *
  * Analytics see EXPENSES ONLY. Income, reimbursements, card payments, paybacks,
- * and transfers between accounts are excluded without exception — a card
+ * loan payments, and transfers between accounts are excluded without exception — a card
  * payment or a payback counted as spending double-counts purchases that were
  * already recorded when they happened.
  */
@@ -47,6 +47,7 @@ function accountDelta(t: Transaction, account: AccountId): number {
       return here && !isCard(t.method) && t.method !== 'covered' ? -t.amountCents : 0;
     case 'card_payment':
     case 'payback':
+    case 'loan_payment':
       return here ? -t.amountCents : 0;
     case 'to_amex':
       return account === 'amex_acc' ? t.amountCents : -t.amountCents;
@@ -176,6 +177,22 @@ export function tripTotals(txs: readonly Transaction[]): TripTotal[] {
     if (t.date > found.to) found.to = t.date;
   }
   return [...totals.values()].sort((a, b) => b.to.localeCompare(a.to));
+}
+
+/**
+ * Every loan payment, oldest first, and what they add up to. Like a card payment
+ * this is money leaving an account, not spending, so it reaches no chart — this
+ * running total is the only place it is reported. It is what has been paid, never
+ * what is still owed.
+ */
+export function loanPayments(txs: readonly Transaction[]): {
+  cents: number;
+  payments: Transaction[];
+} {
+  const payments = txs
+    .filter((t) => t.type === 'loan_payment')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return { cents: sumCents(payments.map((t) => t.amountCents)), payments };
 }
 
 /**

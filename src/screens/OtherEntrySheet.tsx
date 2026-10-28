@@ -27,6 +27,8 @@ type OtherType = Exclude<TxType, 'expense'>;
  *  payback       — the mirror of a reimbursement: money goes out to someone who
  *                  covered you. The expense itself was already logged as "paid
  *                  for me", so this is only the money moving, never spending.
+ *  loan_payment  — money leaving an account towards the loan. Not spending; its
+ *                  running total is shown on its own in analytics.
  *  to_amex/chase — a transfer between the two accounts. Also not spending: the
  *                  money is still yours, it just moved.
  *
@@ -53,6 +55,11 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
     label: 'Amount paid',
     help: 'You paid someone back. Comes out of the account, and never counts as spending — the expense was logged when they covered you.',
   },
+  loan_payment: {
+    title: 'Loan payment',
+    label: 'Amount paid',
+    help: 'Comes out of the account and adds to your loan payments total. Never counts as spending.',
+  },
   to_amex: {
     title: 'To Amex',
     label: 'Amount moved',
@@ -71,6 +78,7 @@ const ACCOUNT_LABEL: Partial<Record<OtherType, string>> = {
   reimbursement: 'Into',
   card_payment: 'Paid from',
   payback: 'Paid from',
+  loan_payment: 'Paid from',
 };
 
 export default function OtherEntrySheet({

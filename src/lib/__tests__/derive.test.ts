@@ -8,6 +8,7 @@ import {
   dailyTotals,
   methodTotals,
   needsSubscriptionNudge,
+  loanPayments,
   netPosition,
   spend,
   tripTotals,
@@ -272,6 +273,26 @@ describe('chase and amex accounts', () => {
     const charge = tx({ type: 'expense', amountCents: 4000, category: 'cab', method: 'amex' });
     expect(amex([charge])).toBe(0);
     expect(cardBalance([charge], 'amex')).toBe(4000);
+  });
+});
+
+describe('loanPayments', () => {
+  const loans: Transaction[] = [
+    tx({ type: 'loan_payment', amountCents: 25000, date: '2026-09-01', method: 'debit' }),
+    tx({ type: 'loan_payment', amountCents: 25000, date: '2026-08-01', method: 'amex_acc' }),
+  ];
+
+  it('totals every payment, oldest first', () => {
+    const { cents, payments } = loanPayments(loans);
+    expect(cents).toBe(50000);
+    expect(payments.map((t) => t.date)).toEqual(['2026-08-01', '2026-09-01']);
+  });
+
+  it('leaves the account it came from, and is never spending', () => {
+    expect(accountBalance(loans, 'debit')).toBe(-25000);
+    expect(accountBalance(loans, 'amex_acc')).toBe(-25000);
+    expect(spend(loans, '2026-01-01', '2026-12-31')).toBe(0);
+    expect(cardBalance(loans)).toBe(0);
   });
 });
 
