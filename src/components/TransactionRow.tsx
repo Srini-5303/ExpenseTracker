@@ -9,8 +9,8 @@ const TYPE_LABEL: Record<TxType, string> = {
   reimbursement: 'Money back',
   card_payment: 'Card payment',
   payback: 'Pay back',
-  savings_deposit: 'To savings',
-  savings_withdrawal: 'From savings',
+  to_amex: 'To Amex',
+  to_chase: 'To Chase',
 };
 
 /**

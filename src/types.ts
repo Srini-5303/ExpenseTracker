@@ -4,8 +4,8 @@ export type TxType =
   | 'reimbursement'
   | 'card_payment'
   | 'payback'
-  | 'savings_deposit'
-  | 'savings_withdrawal';
+  | 'to_amex'
+  | 'to_chase';
 
 /**
  * A credit card, identified rather than lumped together as "credit": each one
@@ -19,7 +19,15 @@ export type CardId = 'chase' | 'amex';
  * Deliberately not a debt: like a reimbursement, nothing is owed, aged, or
  * matched to a later payback.
  */
-export type PayMethod = CardId | 'debit' | 'cash' | 'covered';
+export type PayMethod = CardId | AccountId | 'cash' | 'covered';
+
+/**
+ * A bank account, separate from the card of the same bank. The Chase account is
+ * stored as 'debit', and the retired 'cash' or no method at all also mean Chase,
+ * so everything logged before there were two accounts reads as Chase without a
+ * rewrite. The Amex account is 'amex_acc', never 'amex' — that is the card.
+ */
+export type AccountId = 'debit' | 'amex_acc';
 
 export type Category =
   | 'groceries'
@@ -40,7 +48,7 @@ export interface Transaction {
   amountCents: number; // full charge or full amount received, always positive
   ownShareCents: number; // equals amountCents when nothing was split
   category?: Category; // required for expenses, absent for all other types
-  method?: PayMethod; // required for expenses and card payments
+  method?: PayMethod; // required for expenses; the account for everything but transfers
   /**
    * Which card a `card_payment` pays down. Separate from `method`, which on a
    * card payment says where the money came FROM — the two are never the same

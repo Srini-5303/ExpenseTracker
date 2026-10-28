@@ -1,7 +1,7 @@
-import type { CardId, Category, PayMethod, Transaction } from '@/types';
+import type { AccountId, CardId, Category, PayMethod, Transaction } from '@/types';
 import { sumCents } from '@/lib/money';
-import { CARD_IDS } from '@/lib/categories';
-import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
+import { ACCOUNT_IDS, CARD_IDS } from '@/lib/categories';
+import { inRange, monthKey } from '@/lib/dates';
 
 /**
  * Every balance and total in the UI reads from here, so the amountCents vs
@@ -11,9 +11,9 @@ import { inRange, monthKey, shiftMonth, today } from '@/lib/dates';
  *   Every chart, category total, and period total uses `ownShareCents`.
  *
  * Analytics see EXPENSES ONLY. Income, reimbursements, card payments, paybacks,
- * and savings transfers are excluded without exception — a card payment or a
- * payback counted as spending double-counts purchases that were already
- * recorded when they happened.
+ * and transfers between accounts are excluded without exception — a card
+ * payment or a payback counted as spending double-counts purchases that were
+ * already recorded when they happened.
  */
 
 const isExpense = (t: Transaction) => t.type === 'expense';
@@ -27,70 +27,36 @@ export function expensesIn(txs: readonly Transaction[], start: string, end: stri
   return txs.filter((t) => isExpense(t) && inRange(t.date, start, end));
 }
 
-export function cashOnHand(txs: readonly Transaction[]): number {
-  return sumCents(
-    txs.map((t) => {
-      switch (t.type) {
-        case 'income':
-        case 'reimbursement':
-          return t.amountCents;
-        // A card is paid later; covered was never your money to begin with.
-        case 'expense':
-          return isCard(t.method) || t.method === 'covered' ? 0 : -t.amountCents;
-        case 'card_payment':
-        case 'payback':
-        case 'savings_deposit':
-          return -t.amountCents;
-        case 'savings_withdrawal':
-          return t.amountCents;
-      }
-    }),
-  );
-}
+/** Which bank account an entry moves. Anything not the Amex account is Chase. */
+export const accountOf = (t: Transaction): AccountId =>
+  t.method === 'amex_acc' ? 'amex_acc' : 'debit';
 
 /**
- * What is sitting in savings. Like a card payment, a deposit is a TRANSFER, not
- * an expense: the money is still yours, it just moved. Counting it as spending
- * would make a month of diligent saving look like a month of overspending.
+ * One entry's effect on one bank account. A transfer between the two is not
+ * spending — the money is still yours, it just moved — so it never reaches
+ * analytics and leaves the net position untouched.
  */
-export function savingsBalance(txs: readonly Transaction[]): number {
-  return sumCents(
-    txs.map((t) => {
-      if (t.type === 'savings_deposit') return t.amountCents;
-      if (t.type === 'savings_withdrawal') return -t.amountCents;
-      return 0;
-    }),
-  );
+function accountDelta(t: Transaction, account: AccountId): number {
+  const here = accountOf(t) === account;
+  switch (t.type) {
+    case 'income':
+    case 'reimbursement':
+      return here ? t.amountCents : 0;
+    // A card is paid later; covered was never your money to begin with.
+    case 'expense':
+      return here && !isCard(t.method) && t.method !== 'covered' ? -t.amountCents : 0;
+    case 'card_payment':
+    case 'payback':
+      return here ? -t.amountCents : 0;
+    case 'to_amex':
+      return account === 'amex_acc' ? t.amountCents : -t.amountCents;
+    case 'to_chase':
+      return account === 'debit' ? t.amountCents : -t.amountCents;
+  }
 }
 
-/**
- * The running savings balance at the end of each month that has any activity,
- * plus every month in between — a flat stretch is information, and skipping it
- * would make the line lie about how fast the balance grew.
- */
-export function savingsOverTime(txs: readonly Transaction[]): { month: string; cents: number }[] {
-  const moves = txs.filter(
-    (t) => t.type === 'savings_deposit' || t.type === 'savings_withdrawal',
-  );
-  if (moves.length === 0) return [];
-
-  const byMonth = new Map<string, number>();
-  for (const t of moves) {
-    const key = monthKey(t.date);
-    const delta = t.type === 'savings_deposit' ? t.amountCents : -t.amountCents;
-    byMonth.set(key, (byMonth.get(key) ?? 0) + delta);
-  }
-
-  const months = [...byMonth.keys()].sort();
-  const first = months[0]!;
-  const last = monthKey(today());
-  const series: { month: string; cents: number }[] = [];
-  let running = 0;
-  for (let key = first; key <= last; key = shiftMonth(key, 1)) {
-    running += byMonth.get(key) ?? 0;
-    series.push({ month: key, cents: running });
-  }
-  return series;
+export function accountBalance(txs: readonly Transaction[], account: AccountId): number {
+  return sumCents(txs.map((t) => accountDelta(t, account)));
 }
 
 /**
@@ -121,9 +87,9 @@ export function availableCredit(
   return limitCents === undefined ? undefined : limitCents - cardBalance(txs, card);
 }
 
-/** Everything you have, minus what you owe. Savings counts — it is still yours. */
+/** Everything you have, minus what you owe. */
 export function netPosition(txs: readonly Transaction[]): number {
-  return cashOnHand(txs) + savingsBalance(txs) - cardBalance(txs);
+  return sumCents(ACCOUNT_IDS.map((account) => accountBalance(txs, account))) - cardBalance(txs);
 }
 
 /** Own-share spending in an inclusive date range. Payment method is irrelevant. */
@@ -158,7 +124,7 @@ export function dailyTotals(
   return totals;
 }
 
-/** Own-share totals per payment method, for the credit-vs-debit stacked bar. */
+/** Own-share totals per payment method, with legacy 'cash' counted as the Chase account. */
 export function methodTotals(
   txs: readonly Transaction[],
   start: string,
@@ -167,7 +133,8 @@ export function methodTotals(
   const totals = new Map<PayMethod, number>();
   for (const t of expensesIn(txs, start, end)) {
     if (!t.method) continue;
-    totals.set(t.method, (totals.get(t.method) ?? 0) + t.ownShareCents);
+    const method = t.method === 'cash' ? 'debit' : t.method;
+    totals.set(method, (totals.get(method) ?? 0) + t.ownShareCents);
   }
   return totals;
 }

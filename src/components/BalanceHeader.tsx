@@ -3,9 +3,9 @@ import { METHOD_LABEL } from '@/lib/categories';
 import { formatCents } from '@/lib/money';
 
 /**
- * Cash on hand is the headline. Each card's balance, with its available credit
- * beneath, sits under a hairline — all sharing the same right edge so the figures
- * read as one aligned stack.
+ * The Chase account is the headline, since daily money lives there. Each card's
+ * balance, with its available credit beneath, and then the Amex account sit under
+ * a hairline — all sharing the same right edge so the figures read as one stack.
  *
  * Cards are listed separately rather than summed: one total would hide which
  * limit is close to being hit, which is the only reason to watch these numbers.
@@ -14,19 +14,19 @@ import { formatCents } from '@/lib/money';
  * the credit-limit number.
  */
 export default function BalanceHeader({
-  cashOnHand,
+  chaseAccount,
+  amexAccount,
   cards,
-  savingsBalance,
 }: {
-  cashOnHand: number;
+  chaseAccount: number;
+  amexAccount: number;
   cards: readonly CardReadout[];
-  savingsBalance: number;
 }) {
   return (
     <header className="pt-8">
-      <p className="eyebrow">Cash on hand</p>
+      <p className="eyebrow">{METHOD_LABEL.debit}</p>
       <p className="num mt-1 text-[2.75rem] leading-none font-semibold">
-        {formatCents(cashOnHand)}
+        {formatCents(chaseAccount)}
       </p>
 
       <div className="mt-5 border-t border-line pt-3">
@@ -44,13 +44,10 @@ export default function BalanceHeader({
             )}
           </div>
         ))}
-        {/* Only once there is something in it — an empty row reads as a nag. */}
-        {savingsBalance !== 0 && (
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-sm text-dim">Savings</span>
-            <span className="num text-lg">{formatCents(savingsBalance)}</span>
-          </div>
-        )}
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="text-sm text-dim">{METHOD_LABEL.amex_acc}</span>
+          <span className="num text-lg">{formatCents(amexAccount)}</span>
+        </div>
       </div>
     </header>
   );

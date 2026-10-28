@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Transaction } from '@/types';
 import {
+  accountBalance,
   availableCredit,
   cardBalance,
-  cashOnHand,
   categoryTotals,
   dailyTotals,
   methodTotals,
   needsSubscriptionNudge,
   netPosition,
-  savingsBalance,
-  savingsOverTime,
   spend,
   tripTotals,
 } from '@/lib/derive';
@@ -45,12 +43,15 @@ const fixture: Transaction[] = [
   tx({ type: 'card_payment', amountCents: 20000, method: 'debit', card: 'chase' }),
 ];
 
+const chase = (txs: Transaction[]) => accountBalance(txs, 'debit');
+const amex = (txs: Transaction[]) => accountBalance(txs, 'amex_acc');
+
 const MONTH: [string, string] = ['2026-08-01', '2026-08-31'];
 
-describe('cashOnHand', () => {
+describe('chase account', () => {
   it('follows the money that actually moved', () => {
     // 3000 income - 40 debit expense + 100 reimbursement - 200 card payment
-    expect(cashOnHand(fixture)).toBe(300000 - 4000 + 10000 - 20000);
+    expect(chase(fixture)).toBe(300000 - 4000 + 10000 - 20000);
   });
 
   it('ignores card spending entirely', () => {
@@ -60,7 +61,7 @@ describe('cashOnHand', () => {
       category: 'shopping',
       method: 'chase',
     });
-    expect(cashOnHand([credit])).toBe(0);
+    expect(chase([credit])).toBe(0);
   });
 
   it('uses the full charge on a split, not the own share', () => {
@@ -71,7 +72,7 @@ describe('cashOnHand', () => {
       category: 'groceries',
       method: 'debit',
     });
-    expect(cashOnHand([split])).toBe(-15000);
+    expect(chase([split])).toBe(-15000);
   });
 });
 
@@ -91,7 +92,7 @@ describe('cardBalance', () => {
     });
     const back = tx({ type: 'reimbursement', amountCents: 10000 });
     expect(cardBalance([charge, back])).toBe(15000);
-    expect(cashOnHand([charge, back])).toBe(10000);
+    expect(chase([charge, back])).toBe(10000);
   });
 
   it('is reduced by a card payment, which also reduces cash', () => {
@@ -102,7 +103,7 @@ describe('cardBalance', () => {
       card: 'chase',
     });
     expect(cardBalance([payment])).toBe(-20000);
-    expect(cashOnHand([payment])).toBe(-20000);
+    expect(chase([payment])).toBe(-20000);
   });
 });
 
@@ -147,9 +148,9 @@ describe('availableCredit and netPosition', () => {
     expect(availableCredit(fixture, 'chase', 500000)).toBe(500000 - cardBalance(fixture, 'chase'));
   });
 
-  it('is cash plus savings minus card debt', () => {
+  it('is both accounts minus card debt', () => {
     expect(netPosition(fixture)).toBe(
-      cashOnHand(fixture) + savingsBalance(fixture) - cardBalance(fixture),
+      chase(fixture) + amex(fixture) - cardBalance(fixture),
     );
   });
 });
@@ -217,12 +218,12 @@ describe('covered expenses and paybacks', () => {
   it('is spending, but no money of yours moved', () => {
     expect(spend([covered], ...MONTH)).toBe(3000);
     expect(categoryTotals([covered], ...MONTH).get('restaurant')).toBe(3000);
-    expect(cashOnHand([covered])).toBe(0);
+    expect(chase([covered])).toBe(0);
     expect(cardBalance([covered])).toBe(0);
   });
 
   it('pays back out of cash without counting twice', () => {
-    expect(cashOnHand([covered, back])).toBe(-3000);
+    expect(chase([covered, back])).toBe(-3000);
     expect(spend([covered, back], ...MONTH)).toBe(3000); // still just the dinner
     expect(cardBalance([covered, back])).toBe(0);
   });
@@ -236,40 +237,41 @@ describe('covered expenses and paybacks', () => {
   });
 });
 
-describe('savings', () => {
-  const saving: Transaction[] = [
-    tx({ type: 'income', amountCents: 300000, date: '2026-06-01' }),
-    tx({ type: 'savings_deposit', amountCents: 50000, date: '2026-06-05', method: 'debit' }),
-    tx({ type: 'savings_deposit', amountCents: 50000, date: '2026-08-05', method: 'debit' }),
-    tx({ type: 'savings_withdrawal', amountCents: 20000, date: '2026-08-20', method: 'debit' }),
+describe('chase and amex accounts', () => {
+  const moves: Transaction[] = [
+    tx({ type: 'income', amountCents: 300000 }),
+    tx({ type: 'to_amex', amountCents: 50000 }),
+    tx({ type: 'to_chase', amountCents: 20000 }),
   ];
 
-  it('moves money out of cash without being spending', () => {
-    expect(savingsBalance(saving)).toBe(50000 + 50000 - 20000);
-    expect(cashOnHand(saving)).toBe(300000 - 50000 - 50000 + 20000);
-    // The whole point: a month of diligent saving is not a month of overspending.
-    expect(spend(saving, '2026-01-01', '2026-12-31')).toBe(0);
-    expect(categoryTotals(saving, '2026-01-01', '2026-12-31').size).toBe(0);
+  it('starts amex at zero, with every older entry counted as chase', () => {
+    const legacy = tx({ type: 'card_payment', amountCents: 1000, method: 'cash', card: 'chase' });
+    expect(amex([...fixture, legacy])).toBe(0);
+    expect(chase([legacy])).toBe(-1000);
+    const cab = tx({ type: 'expense', amountCents: 700, category: 'cab', method: 'cash' });
+    expect(methodTotals([cab], ...MONTH).get('debit')).toBe(700);
   });
 
-  it('never touches the card balance', () => {
-    expect(cardBalance(saving)).toBe(0);
+  it('moves money between accounts without being spending', () => {
+    expect(chase(moves)).toBe(300000 - 50000 + 20000);
+    expect(amex(moves)).toBe(50000 - 20000);
+    expect(netPosition(moves)).toBe(300000);
+    expect(spend(moves, '2026-01-01', '2026-12-31')).toBe(0);
+    expect(cardBalance(moves)).toBe(0);
   });
 
-  it('runs the balance forward through months with no activity', () => {
-    const series = savingsOverTime(saving);
-    // June, then a flat July, then August. Skipping July would make the line
-    // claim the balance climbed faster than it did.
-    expect(series.slice(0, 3)).toEqual([
-      { month: '2026-06', cents: 50000 },
-      { month: '2026-07', cents: 50000 },
-      { month: '2026-08', cents: 80000 },
-    ]);
+  it('lands in or leaves from the account picked', () => {
+    const intoAmex = tx({ type: 'income', amountCents: 5000, method: 'amex_acc' });
+    const payFromAmex = tx({ type: 'card_payment', amountCents: 2000, method: 'amex_acc', card: 'amex' });
+    expect(amex([intoAmex, payFromAmex])).toBe(3000);
+    expect(chase([intoAmex, payFromAmex])).toBe(0);
+    expect(cardBalance([payFromAmex], 'amex')).toBe(-2000);
   });
 
-  it('is empty until something is saved', () => {
-    expect(savingsOverTime(fixture)).toEqual([]);
-    expect(savingsBalance(fixture)).toBe(0);
+  it('never confuses the amex account with the amex card', () => {
+    const charge = tx({ type: 'expense', amountCents: 4000, category: 'cab', method: 'amex' });
+    expect(amex([charge])).toBe(0);
+    expect(cardBalance([charge], 'amex')).toBe(4000);
   });
 });
 

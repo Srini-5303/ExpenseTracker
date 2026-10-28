@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { CardId, PayMethod, Transaction, TxType } from '@/types';
+import type { AccountId, CardId, Transaction, TxType } from '@/types';
 import { addTransaction, replaceTransaction } from '@/hooks/useTransactions';
-import { CARD_IDS } from '@/lib/categories';
+import { ACCOUNT_IDS, CARD_IDS } from '@/lib/categories';
 import { parseAmount } from '@/lib/money';
 import { today } from '@/lib/dates';
 import Sheet from '@/components/Sheet';
@@ -13,21 +13,22 @@ import DeleteAction from '@/components/DeleteAction';
 type OtherType = Exclude<TxType, 'expense'>;
 
 /**
- * Paychecks, reimbursements, and card payments.
+ * Paychecks, reimbursements, card payments, paybacks, and transfers. Every one
+ * but a transfer names the bank account the money lands in or leaves from.
  *
- *  income        — increases cash, has no category and no method
- *  reimbursement — increases cash, is NOT income, and does NOT reduce the card
+ *  income        — increases the account, has no category
+ *  reimbursement — increases the account, is NOT income, and does NOT reduce the card
  *                  balance, because the bank still wants the full charge until
  *                  the bill is paid. Nothing is matched to an original
  *                  transaction and nothing is ever marked settled.
- *  card_payment  — moves money from cash to ONE card's balance. It is not an
+ *  card_payment  — moves money from an account to ONE card's balance. It is not an
  *                  expense and must never reach analytics: the purchases behind
  *                  it were already recorded when they happened.
- *  payback       — the mirror of a reimbursement: cash goes out to someone who
+ *  payback       — the mirror of a reimbursement: money goes out to someone who
  *                  covered you. The expense itself was already logged as "paid
- *                  for me", so this is only the cash moving, never spending.
- *  savings       — a transfer in either direction. Also not spending: a month of
- *                  diligent saving must not read as a month of overspending.
+ *                  for me", so this is only the money moving, never spending.
+ *  to_amex/chase — a transfer between the two accounts. Also not spending: the
+ *                  money is still yours, it just moved.
  *
  * All of them set ownShareCents equal to amountCents.
  */
@@ -35,37 +36,42 @@ const COPY: Record<OtherType, { title: string; label: string; help: string }> = 
   income: {
     title: 'Paycheck',
     label: 'Amount received',
-    help: 'Money coming in. Adds to cash on hand.',
+    help: 'Money coming in. Adds to the account it lands in.',
   },
   reimbursement: {
     title: 'Money back',
     label: 'Amount received',
-    help: 'Someone paid you back. Adds to cash, and never counts as spending or income.',
+    help: 'Someone paid you back. Adds to the account, and never counts as spending or income.',
   },
   card_payment: {
     title: 'Card payment',
     label: 'Amount paid',
-    help: 'Pays down one card from cash. Never counts as spending — those purchases were logged when you made them.',
+    help: 'Pays down one card from an account. Never counts as spending — those purchases were logged when you made them.',
   },
   payback: {
     title: 'Pay back',
     label: 'Amount paid',
-    help: 'You paid someone back. Comes out of cash, and never counts as spending — the expense was logged when they covered you.',
+    help: 'You paid someone back. Comes out of the account, and never counts as spending — the expense was logged when they covered you.',
   },
-  savings_deposit: {
-    title: 'To savings',
-    label: 'Amount saved',
-    help: 'Moves cash into savings. Not spending — the money is still yours, it just moved.',
+  to_amex: {
+    title: 'To Amex',
+    label: 'Amount moved',
+    help: 'Moves money from the Chase account to the Amex account. Not spending — the money is still yours, it just moved.',
   },
-  savings_withdrawal: {
-    title: 'From savings',
-    label: 'Amount taken out',
-    help: 'Moves savings back into cash. Whatever you then spend it on gets logged as its own expense.',
+  to_chase: {
+    title: 'To Chase',
+    label: 'Amount moved',
+    help: 'Moves money from the Amex account to the Chase account. Not spending — the money is still yours, it just moved.',
   },
 };
 
-/** Where a card payment's money comes from — never a card, or nothing would move. */
-const SOURCES: readonly PayMethod[] = ['debit', 'cash'];
+/** Which way the account toggle reads: money landing in it, or leaving it. */
+const ACCOUNT_LABEL: Partial<Record<OtherType, string>> = {
+  income: 'Into',
+  reimbursement: 'Into',
+  card_payment: 'Paid from',
+  payback: 'Paid from',
+};
 
 export default function OtherEntrySheet({
   type,
@@ -82,7 +88,11 @@ export default function OtherEntrySheet({
   const [amountText, setAmountText] = useState(
     existing ? (existing.amountCents / 100).toFixed(2) : '',
   );
-  const [method, setMethod] = useState<PayMethod>(existing?.method ?? 'debit');
+  // An old 'cash' or method-less entry opens as Chase, which is what it counts as.
+  const [account, setAccount] = useState<AccountId>(
+    existing?.method === 'amex_acc' ? 'amex_acc' : 'debit',
+  );
+  const accountLabel = ACCOUNT_LABEL[type];
   const [card, setCard] = useState<CardId>(existing?.card ?? 'chase');
   const [note, setNote] = useState(existing?.note ?? '');
   const [date, setDate] = useState(existing?.date ?? today());
@@ -99,7 +109,8 @@ export default function OtherEntrySheet({
       type,
       amountCents,
       ownShareCents: amountCents,
-      ...(type === 'card_payment' ? { method, card } : {}),
+      ...(accountLabel ? { method: account } : {}),
+      ...(type === 'card_payment' ? { card } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
     };
     if (existing) await replaceTransaction(existing, fields);
@@ -124,14 +135,18 @@ export default function OtherEntrySheet({
 
       <div className="space-y-6 pb-6">
         <p className="px-5 text-sm leading-relaxed text-dim">{copy.help}</p>
-        {/* Which card is paid down, and where the money comes from. Both are
-            needed: the payment has to land on one card's balance, and it has to
-            leave cash — and those are never the same choice. */}
+        {/* Which card is paid down, and which account the money leaves. Both are
+            needed on a card payment, and they are never the same choice. */}
         {type === 'card_payment' && (
-          <>
-            <MethodToggle label="Card paid" value={card} onChange={setCard} options={CARD_IDS} />
-            <MethodToggle label="Paid from" value={method} onChange={setMethod} options={SOURCES} />
-          </>
+          <MethodToggle label="Card paid" value={card} onChange={setCard} options={CARD_IDS} />
+        )}
+        {accountLabel && (
+          <MethodToggle
+            label={accountLabel}
+            value={account}
+            onChange={setAccount}
+            options={ACCOUNT_IDS}
+          />
         )}
         <NoteDateRow note={note} date={date} onNote={setNote} onDate={setDate} />
       </div>

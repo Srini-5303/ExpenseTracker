@@ -42,9 +42,9 @@ export default function Home() {
     <>
       <div className="scroll-contain safe-top flex-1 px-6 pb-44">
         <BalanceHeader
-          cashOnHand={b.cashOnHand}
+          chaseAccount={b.chaseAccount}
+          amexAccount={b.amexAccount}
           cards={b.cards}
-          savingsBalance={b.savingsBalance}
         />
         <SpendSummary today={b.spentToday} week={b.spentThisWeek} month={b.spentThisMonth} />
         {/* Due reminders come first, and while any is pending the generic nudge

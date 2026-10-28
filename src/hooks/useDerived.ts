@@ -22,8 +22,8 @@ export function useBalances() {
     const now = today();
     return {
       hasTransactions: txs.length > 0,
-      cashOnHand: derive.cashOnHand(txs),
-      savingsBalance: derive.savingsBalance(txs),
+      chaseAccount: derive.accountBalance(txs, 'debit'),
+      amexAccount: derive.accountBalance(txs, 'amex_acc'),
       cards: CARD_IDS.map<CardReadout>((card) => ({
         card,
         balance: derive.cardBalance(txs, card),
